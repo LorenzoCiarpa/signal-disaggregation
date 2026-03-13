@@ -1,0 +1,133 @@
+{
+  "imei": "86684007269888",
+  "devices": {
+    "Frigorifero": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Congelatore": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Lavatrice": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "1-2 volte",
+      "duration": "1-2 ore",
+      "model": "lavatrice e asciugatrice samsung"
+    },
+    "Asciugatrice": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": "lavatrice e asciugatrice samsung"
+    },
+    "Lavastoviglie": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "Notte",
+      "duration": "1-2 ore",
+      "model": ""
+    },
+    "Forno": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "mai",
+      "duration": "30-60 minuti",
+      "model": ""
+    },
+    "Piano cottura": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Microonde": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Boiler": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Climatizzatore": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Televisori": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Computer": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Console": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Auto elettrica": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Frigorifero principale": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Frigorifero secondario": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    }
+  }
+}

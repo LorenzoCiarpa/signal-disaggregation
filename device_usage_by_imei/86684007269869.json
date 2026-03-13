@@ -1,0 +1,133 @@
+{
+  "imei": "86684007269869",
+  "devices": {
+    "Frigorifero": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Congelatore": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": "SIEMENS KI34VA50IE/01"
+    },
+    "Lavatrice": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "5-7 volte",
+      "duration": "1-2 ore",
+      "model": "BOSH WAT20428IT/01"
+    },
+    "Asciugatrice": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": "BOSH WAT20428IT/01"
+    },
+    "Lavastoviglie": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "Pranzo",
+      "duration": "1-2 ore",
+      "model": "Miele G 1171 Vi"
+    },
+    "Forno": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "mai",
+      "duration": "30-60 minuti",
+      "model": ""
+    },
+    "Piano cottura": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Microonde": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Boiler": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Climatizzatore": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Televisori": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Computer": {
+      "present": true,
+      "present_label": "> 2",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Console": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Auto elettrica": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Frigorifero principale": {
+      "present": true,
+      "present_label": "1",
+      "present_count": 1,
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    },
+    "Frigorifero secondario": {
+      "present": false,
+      "present_label": "",
+      "present_count": "",
+      "frequency": "",
+      "duration": "",
+      "model": ""
+    }
+  }
+}
