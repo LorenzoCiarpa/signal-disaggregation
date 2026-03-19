@@ -1,4 +1,6 @@
 __pycache__/
 plots_daily/
 plots_weekly/
+daily_plots/
+spike_plots/
 json/
