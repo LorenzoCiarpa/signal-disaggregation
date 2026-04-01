@@ -34,3 +34,21 @@ All acceptance criteria pass:
 - get_device_profiles for test IMEI: 16 profiles returned OK
 
 Next: US-003 (Approccio A — Event-based disaggregation) is next.
+
+## 2026-04-01 — US-003: Approccio A — Event-based disaggregation
+
+Implemented scripts/nilm/approach_event_based.py.
+
+- `run(signal, devices, threshold_w=50.0)`: standard interface returning dict[str, pd.Series]
+- Computes delta_w = signal.diff(); detects ON events (delta_w > threshold) and OFF events
+  (delta_w < -threshold)
+- For each ON event: selects device with |p_typical - |delta_w|| minimum among present devices
+  (prior_weight >= 1.0); falls back to all devices if none are present
+- Pairs each ON event with the first OFF event within dur_typical*3 minutes; uses dur_typical
+  as default duration if no OFF event is found
+- Output: per-device pd.Series with 0 (OFF) or p_typical_w (ON); NaN where signal is NaN
+
+All acceptance criteria pass:
+- py_compile: OK
+
+Next: US-004 (Approccio B — HMM per singolo dispositivo) is next.

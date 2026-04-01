@@ -49,8 +49,8 @@
         "python -m py_compile scripts/nilm/approach_event_based.py non produce errori"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/approach_event_based.py. run() detects ON/OFF events via delta_w threshold, assigns each ON event to the closest-power present device, pairs with next compatible OFF event within dur_typical*3 minutes. All AC verified."
     },
     {
       "id": "US-004",
