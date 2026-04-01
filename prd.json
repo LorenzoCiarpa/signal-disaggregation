@@ -120,8 +120,8 @@
         "python -m py_compile scripts/nilm/approach_event_prior.py non produce errori"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/approach_event_prior.py. run() detects ON/OFF events via delta_w threshold (same as US-003), assigns each ON event to the device with maximum score = Gaussian_likelihood(|delta_w|; p_typical_w, (sigma_factor*p_typical_w)^2) * prior_weight * min(frequency_per_week/7, 1.0). Considers all devices (present and absent). Same ON/OFF pairing logic as US-003. All AC verified."
     },
     {
       "id": "US-008",

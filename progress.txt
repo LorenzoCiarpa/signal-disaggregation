@@ -110,3 +110,25 @@ All acceptance criteria pass:
 - py_compile: OK
 
 Next: US-007 (Approccio E — Event-based con prior pesato) is next.
+
+## 2026-04-01 — US-007: Approccio E — Event-based con prior pesato da inventario
+
+Implemented scripts/nilm/approach_event_prior.py.
+
+- `run(signal, devices, threshold_w=50.0, sigma_factor=0.3)`: standard interface returning dict[str, pd.Series]
+- Event detection: same delta_w threshold method as US-003 (ON events: delta_w > threshold,
+  OFF events: delta_w < -threshold)
+- Device assignment via Bayesian score for each event:
+  - likelihood = N(|delta_w|; p_typical_w, (sigma_factor * p_typical_w)^2) — Gaussian centered at
+    the device's typical power
+  - frequency_factor = min(frequency_per_week / 7.0, 1.0)
+  - score = likelihood * prior_weight * frequency_factor
+  - All devices considered (present prior_weight=1.0 and absent prior_weight=0.05)
+- ON/OFF pairing: same logic as US-003 (first OFF within dur_typical*3 min; fallback to
+  dur_typical_min duration)
+- Output: per-device pd.Series with 0 (OFF) or p_typical_w (ON); NaN where signal is NaN
+
+All acceptance criteria pass:
+- py_compile: OK
+
+Next: US-008 (Modulo di output: CSV, grafici giornalieri e report energetico) is next.
