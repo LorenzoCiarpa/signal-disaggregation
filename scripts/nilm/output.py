@@ -19,6 +19,7 @@ def save_results(
     imei: str,
     approach_name: str,
     output_dir: str = "analysis",
+    skip_daily_plots: bool = False,
 ) -> None:
     """Save disaggregation CSV, daily plots, and energy report for one (imei, approach) pair.
 
@@ -28,13 +29,15 @@ def save_results(
         imei: IMEI identifier string.
         approach_name: Name of the disaggregation approach.
         output_dir: Root output directory (default: 'analysis').
+        skip_daily_plots: If True, skip saving daily PNG plots (default: False).
     """
     base_dir = os.path.join(output_dir, imei, approach_name)
     daily_dir = os.path.join(base_dir, "daily_plots")
     os.makedirs(daily_dir, exist_ok=True)
 
     _save_csv(signal, disaggregation, base_dir)
-    _save_daily_plots(signal, disaggregation, imei, approach_name, daily_dir)
+    if not skip_daily_plots:
+        _save_daily_plots(signal, disaggregation, imei, approach_name, daily_dir)
     _save_energy_report(signal, disaggregation, imei, approach_name, base_dir)
 
 

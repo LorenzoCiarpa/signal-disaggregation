@@ -177,3 +177,25 @@ All acceptance criteria pass:
 - py_compile: OK
 
 Next: US-010 (Script main di orchestrazione run_disaggregation.py) is next.
+
+## 2026-04-01 — US-010: Script main di orchestrazione run_disaggregation.py
+
+Implemented scripts/run_disaggregation.py.
+
+- argparse CLI with: --imei (optional, default all 6 usable IMEIs), --approach
+  {event,hmm,fhmm,template,event_prior,all} (default=all), --no-plots (skip daily PNGs),
+  --json-dir (default='json'), --output-dir (default='analysis')
+- Loads signals via preprocessing.load_imei() and device profiles via devices.get_device_profiles()
+  before entering the approach loop
+- For each (imei, approach) pair: prints 'Processing IMEI {imei} — approach {approach}...',
+  calls approach.run(), then output.save_results() (with skip_daily_plots=args.no_plots)
+- Exceptions per (imei, approach) are caught, printed, and accumulated — loop continues
+- After all pairs: calls benchmark.run_benchmark() which prints the ranking to stdout
+- Writes analysis/run_log.txt with ISO8601 start/end timestamps and list of errors
+- Added skip_daily_plots: bool = False parameter to output.save_results() to support --no-plots
+
+All acceptance criteria pass:
+- py_compile: OK
+- --help: OK (shows usage, exits 0)
+
+All 10 user stories in the PRD are now complete.
