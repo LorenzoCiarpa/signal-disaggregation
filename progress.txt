@@ -1,0 +1,16 @@
+## 2026-04-01 — US-001: Pipeline di preprocessing dati NILM
+
+Implemented scripts/nilm/__init__.py (empty) and scripts/nilm/preprocessing.py.
+
+- `USABLE_IMEIS`: constant with the 6 IMEIs having >50k records
+- `get_usable_imeis()`: returns USABLE_IMEIS
+- `load_imei(imei, json_dir)`: loads JSON, filters epoch_valid=false and w_medio>10000 spikes,
+  parses $numberLong _id format, converts to UTC DatetimeIndex, resamples to 1-min freq,
+  reindexes to full range (NaN gaps preserved)
+- Installed pandas system-wide (--break-system-packages) as it was missing
+
+All acceptance criteria pass:
+- py_compile: OK
+- standalone import test: OK
+
+Next: US-002 (devices knowledge base) is the next highest priority.
