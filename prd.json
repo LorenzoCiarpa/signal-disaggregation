@@ -154,8 +154,8 @@
         "python -m py_compile scripts/nilm/benchmark.py non produce errori"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/benchmark.py. compute_metrics() returns mae_recon, rmse_recon, energy_error_pct, residuo_medio_w, n_devices_found, temporal_consistency. run_benchmark() iterates all (imei, approach) pairs, calls compute_metrics, saves benchmark_results.csv and benchmark_summary.png heatmap (matplotlib imshow with numeric annotations), prints ranking by mae_recon ascending. All AC verified."
     },
     {
       "id": "US-010",

@@ -152,3 +152,28 @@ All acceptance criteria pass:
 - py_compile: OK
 
 Next: US-009 (Benchmark proxy senza labels) is next.
+
+## 2026-04-01 — US-009: Benchmark proxy senza labels
+
+Implemented scripts/nilm/benchmark.py.
+
+- `compute_metrics(signal, disaggregation, devices)`: computes proxy quality metrics:
+  - mae_recon: mean absolute error between aggregate signal and sum of device estimates
+  - rmse_recon: root mean squared reconstruction error
+  - energy_error_pct: |total_energy - disagg_energy| / total_energy * 100
+  - residuo_medio_w: mean of (signal - total_disagg) over valid timesteps
+  - n_devices_found: count of devices with estimated energy > 1% of total
+  - temporal_consistency: fraction of ON blocks with duration in [dur_min_min/2, dur_typical_min*3]
+- `run_benchmark(results, signals, devices_by_imei, output_dir)`:
+  - Iterates all (imei, approach) pairs in results dict
+  - Calls compute_metrics for each pair
+  - Saves analysis/benchmark_results.csv with all per-(imei,approach) metrics
+  - Saves analysis/benchmark_summary.png as a heatmap (matplotlib imshow) of mean metrics
+    per approach across all IMEIs, with numeric annotations
+  - Prints ranking to stdout ordered by mae_recon ascending
+  - Returns pd.DataFrame with all rows
+
+All acceptance criteria pass:
+- py_compile: OK
+
+Next: US-010 (Script main di orchestrazione run_disaggregation.py) is next.
