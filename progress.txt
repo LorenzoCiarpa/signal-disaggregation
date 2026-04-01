@@ -71,3 +71,22 @@ All acceptance criteria pass:
 - py_compile: OK
 
 Next: US-005 (Approccio C — Factorial HMM semplificato) is next.
+
+## 2026-04-01 — US-005: Approccio C — Factorial HMM semplificato
+
+Implemented scripts/nilm/approach_fhmm.py.
+
+- `run(signal, devices, max_iter=50, tol=1e-3)`: standard interface returning dict[str, pd.Series]
+- Greedy coordinate-ascent FHMM:
+  - Initializes all device binary states to 0 for every timestep
+  - At each iteration, for each device i: computes residual = signal - sum(other devices);
+    sets x_i(t)=1 if residual(t) > p_typical_i/2 (i.e., ON state minimises |residual - p_i*x_i|)
+  - Repeats until total state changes < tol*T or max_iter reached
+- Temporal smoothing: removes ON blocks shorter than dur_min_min/2 samples after convergence
+- NaN positions in signal are treated as 0 for inference; output NaN-masked to match signal
+- Only operates on present devices (prior_weight >= 1.0)
+
+All acceptance criteria pass:
+- py_compile: OK
+
+Next: US-006 (Approccio D — Template matching) is next.

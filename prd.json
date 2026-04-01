@@ -84,8 +84,8 @@
         "python -m py_compile scripts/nilm/approach_fhmm.py non produce errori"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/approach_fhmm.py. Greedy coordinate-ascent FHMM: initializes all device states to 0, iterates updating each device's binary state per timestep (x_i=1 if residual > p_i/2), repeats until <tol*T changes or max_iter. Temporal smoothing removes ON blocks shorter than dur_min_min/2. Only operates on present devices (prior_weight>=1.0). All AC verified."
     },
     {
       "id": "US-006",
