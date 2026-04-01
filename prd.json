@@ -66,8 +66,8 @@
         "python -m py_compile scripts/nilm/approach_hmm.py non produce errori"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/approach_hmm.py. GaussianHMM(n_components=2, diag, n_iter=50, random_state=42) per device with prior_weight>=1.0. Means initialized to [5.0, p_typical_w], covars to [100, (p_typical_w*0.2)^2]. Fits on residual signal (NaN dropped), predicts states, maps higher-mean state to ON. Skips devices with all-NaN residual. Added hmmlearn>=0.3 to requirements.txt. All AC verified."
     },
     {
       "id": "US-005",

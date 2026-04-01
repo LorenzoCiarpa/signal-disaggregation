@@ -52,3 +52,22 @@ All acceptance criteria pass:
 - py_compile: OK
 
 Next: US-004 (Approccio B — HMM per singolo dispositivo) is next.
+
+## 2026-04-01 — US-004: Approccio B — HMM per singolo dispositivo (unsupervised)
+
+Implemented scripts/nilm/approach_hmm.py and added hmmlearn>=0.3 to requirements.txt.
+
+- `run(signal, devices)`: standard interface returning dict[str, pd.Series]
+- For each present device (prior_weight >= 1.0):
+  - Fits GaussianHMM(n_components=2, covariance_type='diag', n_iter=50, random_state=42)
+  - Initializes means_ = [[5.0], [p_typical_w]], covars_ = [[100], [(p_typical_w*0.2)^2]]
+  - Fits on the residual signal (aggregate minus already-estimated devices), NaN dropped
+  - Predicts state sequence; maps higher-mean state index to ON
+  - Assigns p_typical_w for ON states, 0 for OFF; NaN where signal is NaN
+- Skips devices whose residual is entirely NaN (leaves as zero series)
+- Installed hmmlearn 0.3.3 system-wide
+
+All acceptance criteria pass:
+- py_compile: OK
+
+Next: US-005 (Approccio C — Factorial HMM semplificato) is next.
