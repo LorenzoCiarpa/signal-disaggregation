@@ -90,3 +90,23 @@ All acceptance criteria pass:
 - py_compile: OK
 
 Next: US-006 (Approccio D — Template matching) is next.
+
+## 2026-04-01 — US-006: Approccio D — Template matching
+
+Implemented scripts/nilm/approach_template.py.
+
+- `run(signal, devices, corr_threshold=0.6)`: standard interface returning dict[str, pd.Series]
+- For each present device (prior_weight >= 1.0) with dur_typical_min >= 3:
+  - Builds rectangular numpy template of length int(dur_typical_min) at value p_typical_w
+  - Computes normalized cross-correlation via scipy.signal.correlate(mode='same') divided by
+    template L2 norm
+  - Detects peaks above corr_threshold with distance=int(dur_typical_min*0.5) using find_peaks
+  - Assigns ON windows greedy (sorted by descending correlation score); skips windows that
+    overlap already-assigned timesteps (first-come-first-served)
+- NaN positions in signal are treated as 0 for correlation; output NaN-masked to match signal
+- Devices processed in descending p_typical_w order (larger appliances first)
+
+All acceptance criteria pass:
+- py_compile: OK
+
+Next: US-007 (Approccio E — Event-based con prior pesato) is next.

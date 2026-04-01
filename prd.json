@@ -102,8 +102,8 @@
         "python -m py_compile scripts/nilm/approach_template.py non produce errori"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/approach_template.py. run() builds rectangular templates (p_typical_w × dur_typical_min samples) for each present device (prior_weight>=1.0, dur>=3min), computes normalized cross-correlation via scipy.signal.correlate(mode='same'), detects peaks above corr_threshold with distance=dur*0.5, assigns ON windows greedy by descending correlation score (first-come-first-served, no overlap). All AC verified."
     },
     {
       "id": "US-007",
