@@ -14,3 +14,23 @@ All acceptance criteria pass:
 - standalone import test: OK
 
 Next: US-002 (devices knowledge base) is the next highest priority.
+
+## 2026-04-01 — US-002: Knowledge base dispositivi e inventario per IMEI
+
+Implemented scripts/nilm/devices.py.
+
+- `DeviceProfile`: dataclass with all required fields (name, p_min_w, p_typical_w, p_max_w,
+  dur_min_min, dur_typical_min, duty_cycle, frequency_per_week, prior_weight)
+- `DEVICE_KNOWLEDGE_BASE`: dict with all 16 devices and their typical power/usage specs
+- `parse_frequency()`: maps Italian survey strings to weekly frequency float;
+  handles case-insensitive matching; defaults to 3.0 for empty/unknown values
+- `get_device_profiles()`: loads device_usage_by_imei/{imei}.json, sets prior_weight=1.0
+  for present devices and 0.05 for absent; applies parse_frequency for frequency_per_week
+
+All acceptance criteria pass:
+- py_compile: OK
+- 16 entries in DEVICE_KNOWLEDGE_BASE: OK
+- parse_frequency all cases: OK
+- get_device_profiles for test IMEI: 16 profiles returned OK
+
+Next: US-003 (Approccio A — Event-based disaggregation) is next.

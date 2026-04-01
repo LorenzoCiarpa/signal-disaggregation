@@ -32,8 +32,8 @@
         "python -m py_compile scripts/nilm/devices.py non produce errori"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/devices.py. DeviceProfile dataclass, DEVICE_KNOWLEDGE_BASE (16 entries), parse_frequency(), get_device_profiles(). All AC verified."
     },
     {
       "id": "US-003",
