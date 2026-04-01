@@ -137,8 +137,8 @@
         "python -m py_compile scripts/nilm/output.py non produce errori"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented scripts/nilm/output.py. save_results() creates analysis/{imei}/{approach_name}/, writes disaggregation.csv (timestamp ISO8601, w_total, per-device columns, residuo), saves daily PNGs in daily_plots/ (aggregate grey, stacked colored device layers, dashed black residual, HH:MM x-axis), saves energy_report.png (horizontal bar chart, kWh + percentage labels). Uses matplotlib Agg backend. All AC verified."
     },
     {
       "id": "US-009",

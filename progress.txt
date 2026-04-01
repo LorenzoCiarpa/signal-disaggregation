@@ -132,3 +132,23 @@ All acceptance criteria pass:
 - py_compile: OK
 
 Next: US-008 (Modulo di output: CSV, grafici giornalieri e report energetico) is next.
+
+## 2026-04-01 — US-008: Modulo di output: CSV, grafici giornalieri e report energetico
+
+Implemented scripts/nilm/output.py.
+
+- `save_results(signal, disaggregation, imei, approach_name, output_dir)`: creates
+  analysis/{imei}/{approach_name}/ and all sub-directories
+- CSV: writes disaggregation.csv with ISO8601 timestamps, w_total, one column per device,
+  and residuo = w_total - sum(devices)
+- Daily plots: for each day with non-NaN data, saves daily_plots/{YYYY-MM-DD}.png with:
+  aggregate signal in grey, stacked fill_between layers (one color per device with mean > 5W),
+  dashed black residual line, HH:MM x-axis, legend, titled '{imei} — {date} — {approach_name}'
+- Energy report: saves energy_report.png with horizontal bar chart (kWh per device + residual),
+  percentage annotations, titled 'Energia disaggregata — {imei} — {approach_name}'
+- Uses matplotlib with Agg backend (non-interactive)
+
+All acceptance criteria pass:
+- py_compile: OK
+
+Next: US-009 (Benchmark proxy senza labels) is next.
