@@ -1,0 +1,18 @@
+
+=== Run started at 2026-04-07T15:53:45.111750 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['event', 'hmm', 'fhmm', 'template', 'event_prior']
+=== Run finished at 2026-04-07T16:01:03.247637 (duration: 0:07:18.135887) ===
+Errors (6):
+  - ERROR IMEI 86853106211162, approach template: assignment destination is read-only
+  - ERROR IMEI 86684007269866, approach template: assignment destination is read-only
+  - ERROR IMEI 86853106211179, approach template: assignment destination is read-only
+  - ERROR IMEI 86684007269887, approach template: assignment destination is read-only
+  - ERROR IMEI 86853106211173, approach template: assignment destination is read-only
+  - ERROR IMEI 86684007269889, approach template: assignment destination is read-only
+
+=== Run started at 2026-04-07T16:26:08.133057 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['event', 'hmm', 'fhmm', 'template', 'event_prior']
+=== Run finished at 2026-04-07T16:31:45.977680 (duration: 0:05:37.844623) ===
+No errors.

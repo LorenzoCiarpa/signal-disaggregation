@@ -73,7 +73,7 @@ def run(
         # Sort peaks by descending correlation score (greedy assignment)
         peaks = sorted(peaks, key=lambda p: corr[p], reverse=True)
 
-        dev_array = result[dev.name].to_numpy(dtype=float)
+        dev_array = result[dev.name].to_numpy(dtype=float).copy()
 
         for peak_idx in peaks:
             # Center the template window on the peak
