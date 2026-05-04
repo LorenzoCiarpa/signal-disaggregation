@@ -8,6 +8,7 @@ Usage:
 
 import argparse
 import datetime
+import functools
 import os
 import sys
 import traceback
@@ -20,15 +21,29 @@ from scripts.nilm.devices import get_device_profiles
 from scripts.nilm import approach_event_based
 from scripts.nilm import approach_hmm
 from scripts.nilm import approach_fhmm
+from scripts.nilm import approach_fhmm_1
 from scripts.nilm import approach_template
 from scripts.nilm import approach_event_prior
 from scripts.nilm.output import save_results
 from scripts.nilm.benchmark import run_benchmark
 
+
+class _PartialApproach:
+    """Wraps a module's run() with fixed keyword args, preserving the module interface."""
+
+    def __init__(self, module, **kwargs):
+        self._run = functools.partial(module.run, **kwargs)
+
+    def run(self, signal, devices):
+        return self._run(signal, devices)
+
+
 APPROACH_MAP = {
     "event": approach_event_based,
     "hmm": approach_hmm,
     "fhmm": approach_fhmm,
+    "fhmm_1": _PartialApproach(approach_fhmm_1, baseline_mode="peak"),
+    "fhmm_1_dc": _PartialApproach(approach_fhmm_1, baseline_mode="duty_avg"),
     "template": approach_template,
     "event_prior": approach_event_prior,
 }
@@ -45,7 +60,7 @@ def main():
     )
     parser.add_argument(
         "--approach",
-        choices=["event", "hmm", "fhmm", "template", "event_prior", "all"],
+        choices=["event", "hmm", "fhmm", "fhmm_1", "fhmm_1_dc", "template", "event_prior", "all"],
         default="all",
         help="Disaggregation approach to run (default: all)",
     )

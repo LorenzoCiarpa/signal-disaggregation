@@ -24,17 +24,19 @@ class DeviceProfile:
     duty_cycle: Optional[float]
     frequency_per_week: float
     prior_weight: float
+    always_on: bool = False
 
 
 DEVICE_KNOWLEDGE_BASE: dict[str, dict] = {
     "Frigorifero": {
         "p_min_w": 50.0,
-        "p_typical_w": 150.0,
+        "p_typical_w": 125.0,
         "p_max_w": 300.0,
         "dur_min_min": 5.0,
         "dur_typical_min": 20.0,
         "duty_cycle": 0.30,
         "frequency_per_week": 7.0,
+        "always_on": True,
     },
     "Congelatore": {
         "p_min_w": 30.0,
@@ -44,6 +46,7 @@ DEVICE_KNOWLEDGE_BASE: dict[str, dict] = {
         "dur_typical_min": 20.0,
         "duty_cycle": 0.25,
         "frequency_per_week": 7.0,
+        "always_on": True,
     },
     "Lavatrice": {
         "p_min_w": 300.0,
@@ -155,12 +158,13 @@ DEVICE_KNOWLEDGE_BASE: dict[str, dict] = {
     },
     "Frigorifero principale": {
         "p_min_w": 50.0,
-        "p_typical_w": 150.0,
+        "p_typical_w": 125.0,
         "p_max_w": 300.0,
         "dur_min_min": 5.0,
         "dur_typical_min": 20.0,
         "duty_cycle": 0.30,
         "frequency_per_week": 7.0,
+        "always_on": True,
     },
     "Frigorifero secondario": {
         "p_min_w": 30.0,
@@ -170,6 +174,7 @@ DEVICE_KNOWLEDGE_BASE: dict[str, dict] = {
         "dur_typical_min": 20.0,
         "duty_cycle": 0.25,
         "frequency_per_week": 7.0,
+        "always_on": True,
     },
 }
 
@@ -236,6 +241,7 @@ def get_device_profiles(
             duty_cycle=kb_entry["duty_cycle"],
             frequency_per_week=frequency_per_week,
             prior_weight=prior_weight,
+            always_on=kb_entry.get("always_on", False),
         )
         profiles.append(profile)
 
