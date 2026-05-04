@@ -64,3 +64,21 @@ IMEIs: ['86684007269887']
 Approaches: ['fhmm_1']
 === Run finished at 2026-05-04T18:33:27.046621 (duration: 0:00:10.595610) ===
 No errors.
+
+=== Run started at 2026-05-04T23:15:33.409493 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1', 'fhmm_1_dc', 'template', 'event_prior']
+=== Run finished at 2026-05-04T23:16:47.885218 (duration: 0:01:14.475725) ===
+No errors.
+
+=== Run started at 2026-05-05T00:12:23.032491 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1', 'fhmm_1_dc', 'template', 'event_prior']
+=== Run finished at 2026-05-05T00:12:40.253846 (duration: 0:00:17.221355) ===
+No errors.
+
+=== Run started at 2026-05-05T00:13:15.479989 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1', 'fhmm_1_dc', 'template', 'event_prior']
+=== Run finished at 2026-05-05T00:15:03.588380 (duration: 0:01:48.108391) ===
+No errors.

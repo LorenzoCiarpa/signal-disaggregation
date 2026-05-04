@@ -28,16 +28,6 @@ class DeviceProfile:
 
 
 DEVICE_KNOWLEDGE_BASE: dict[str, dict] = {
-    "Frigorifero": {
-        "p_min_w": 50.0,
-        "p_typical_w": 125.0,
-        "p_max_w": 300.0,
-        "dur_min_min": 5.0,
-        "dur_typical_min": 20.0,
-        "duty_cycle": 0.30,
-        "frequency_per_week": 7.0,
-        "always_on": True,
-    },
     "Congelatore": {
         "p_min_w": 30.0,
         "p_typical_w": 100.0,
@@ -215,7 +205,7 @@ def get_device_profiles(
         device_dir: Directory containing per-IMEI JSON files.
 
     Returns:
-        List of DeviceProfile instances for all 16 devices.
+        List of DeviceProfile instances for all modeled devices.
     """
     path = os.path.join(device_dir, f"{imei}.json")
     with open(path, "r", encoding="utf-8") as f:

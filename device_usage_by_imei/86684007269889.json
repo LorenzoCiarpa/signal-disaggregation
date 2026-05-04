@@ -1,14 +1,6 @@
 {
   "imei": "86684007269889",
   "devices": {
-    "Frigorifero": {
-      "present": true,
-      "present_label": "1",
-      "present_count": 1,
-      "frequency": "",
-      "duration": "",
-      "model": ""
-    },
     "Congelatore": {
       "present": true,
       "present_label": "1",

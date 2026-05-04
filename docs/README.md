@@ -64,7 +64,7 @@ signal-disaggregation/
 | Modulo | Responsabilità |
 |--------|----------------|
 | `preprocessing.py` | Carica i JSON, filtra record invalidi e spike (>10kW), ricampiona a 1 min, gestisce i buchi (NaN) |
-| `devices.py` | Definisce `DeviceProfile` (16 elettrodomestici con potenza tipica, durata, duty cycle), carica l'inventario per IMEI e assegna `prior_weight` (1.0=presente, 0.05=assente) |
+| `devices.py` | Definisce `DeviceProfile` (knowledge base dispositivi con potenza tipica, durata, duty cycle), carica l'inventario per IMEI e assegna `prior_weight` (1.0=presente, 0.05=assente) |
 | `approach_*.py` | Ognuno implementa una funzione `run(signal, devices) -> dict[str, pd.Series]` con lo stesso formato di output |
 | `output.py` | Salva CSV di disaggregazione, grafici giornalieri (PNG), report energetico a barre (kWh) |
 | `benchmark.py` | Calcola metriche di qualità proxy (MAE, RMSE, errore energetico, consistenza temporale) e produce ranking + heatmap |
