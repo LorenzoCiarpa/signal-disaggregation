@@ -17,11 +17,12 @@ import traceback
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts.nilm.preprocessing import load_imei, get_usable_imeis
-from scripts.nilm.devices import get_device_profiles
+from scripts.nilm.devices import get_device_profiles, get_device_profiles_v2
 from scripts.nilm import approach_event_based
 from scripts.nilm import approach_hmm
 from scripts.nilm import approach_fhmm
 from scripts.nilm import approach_fhmm_1
+from scripts.nilm import approach_fhmm_1_survey
 from scripts.nilm import approach_template
 from scripts.nilm import approach_event_prior
 from scripts.nilm.output import save_results
@@ -38,12 +39,19 @@ class _PartialApproach:
         return self._run(signal, devices)
 
 
+def _resolve_devices_for_approach(device_bundle, approach_name: str):
+    if isinstance(device_bundle, dict):
+        return device_bundle.get(approach_name, device_bundle.get("default", []))
+    return device_bundle
+
+
 APPROACH_MAP = {
     "event": approach_event_based,
     "hmm": approach_hmm,
     "fhmm": approach_fhmm,
     "fhmm_1": _PartialApproach(approach_fhmm_1, baseline_mode="peak"),
     "fhmm_1_dc": _PartialApproach(approach_fhmm_1, baseline_mode="duty_avg"),
+    "fhmm_1_survey": _PartialApproach(approach_fhmm_1_survey, baseline_mode="peak"),
     "template": approach_template,
     "event_prior": approach_event_prior,
 }
@@ -60,7 +68,7 @@ def main():
     )
     parser.add_argument(
         "--approach",
-        choices=["event", "hmm", "fhmm", "fhmm_1", "fhmm_1_dc", "template", "event_prior", "all"],
+        choices=["event", "hmm", "fhmm", "fhmm_1", "fhmm_1_dc", "fhmm_1_survey", "template", "event_prior", "all"],
         default="all",
         help="Disaggregation approach to run (default: all)",
     )
@@ -113,7 +121,10 @@ def main():
         try:
             print(f"Loading signal for IMEI {imei}...")
             signals[imei] = load_imei(imei, json_dir=args.json_dir)
-            devices_by_imei[imei] = get_device_profiles(imei)
+            devices_by_imei[imei] = {
+                "default": get_device_profiles(imei),
+                "fhmm_1_survey": get_device_profiles_v2(imei),
+            }
         except Exception as e:
             msg = f"ERROR loading IMEI {imei}: {e}"
             print(msg)
@@ -126,11 +137,11 @@ def main():
         if imei not in signals:
             continue
         signal = signals[imei]
-        devices = devices_by_imei[imei]
         results[imei] = {}
 
         for approach_key, approach_module in approaches:
             approach_name = approach_key
+            devices = _resolve_devices_for_approach(devices_by_imei[imei], approach_name)
             print(f"Processing IMEI {imei} — approach {approach_name}...")
             try:
                 disaggregation = approach_module.run(signal, devices)

@@ -13,6 +13,12 @@ import numpy as np
 import pandas as pd
 
 
+def _resolve_devices_for_approach(device_bundle, approach_name: str):
+    if isinstance(device_bundle, dict):
+        return device_bundle.get(approach_name, device_bundle.get("default", []))
+    return device_bundle
+
+
 def compute_metrics(
     signal: pd.Series,
     disaggregation: dict,
@@ -133,7 +139,8 @@ def run_benchmark(
     Args:
         results: dict[imei][approach_name] = disaggregation_dict[str, pd.Series]
         signals: dict[imei] = aggregate pd.Series
-        devices_by_imei: dict[imei] = list[DeviceProfile]
+        devices_by_imei: dict[imei] = list[DeviceProfile] or
+            dict[str, list[DeviceProfile]] with approach-specific overrides.
         output_dir: Root output directory (default: 'analysis').
 
     Returns:
@@ -146,10 +153,11 @@ def run_benchmark(
     rows = []
     for imei, approach_results in results.items():
         signal = signals.get(imei)
-        devices = devices_by_imei.get(imei, [])
+        device_bundle = devices_by_imei.get(imei, [])
         if signal is None:
             continue
         for approach_name, disaggregation in approach_results.items():
+            devices = _resolve_devices_for_approach(device_bundle, approach_name)
             metrics = compute_metrics(signal, disaggregation, devices)
             row = {"imei": imei, "approach": approach_name}
             row.update(metrics)

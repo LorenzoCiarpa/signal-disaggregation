@@ -2,7 +2,8 @@
 fhmm_1 — Variante FHMM con carico always-on e finestra di impegno.
 
 Differenze rispetto al FHMM base:
-1. I dispositivi always_on (frigorifero, congelatore) vengono trattati come
+1. I dispositivi always_on (frigorifero principale, frigorifero secondario,
+    congelatore) vengono trattati come
    baseline costante sottratta dal segnale prima del coordinate-ascent.
    Due modalità:
      "peak"     → baseline = Σ p_typical_w  (es. 125W per frigo)
