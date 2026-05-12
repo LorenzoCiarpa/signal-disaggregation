@@ -5,3 +5,4 @@ daily_plots/
 spike_plots/
 json/
 analysis/[0-9]*/
+analysis/

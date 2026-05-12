@@ -25,6 +25,8 @@ from scripts.nilm import approach_fhmm_1
 from scripts.nilm import approach_fhmm_1_survey
 from scripts.nilm import approach_template
 from scripts.nilm import approach_event_prior
+from scripts.nilm import approach_gurobi
+from scripts.nilm import approach_gurobi_daywise
 from scripts.nilm.output import save_results
 from scripts.nilm.benchmark import run_benchmark
 
@@ -54,6 +56,8 @@ APPROACH_MAP = {
     "fhmm_1_survey": _PartialApproach(approach_fhmm_1_survey, baseline_mode="peak"),
     "template": approach_template,
     "event_prior": approach_event_prior,
+    "gurobi": approach_gurobi,
+    "gurobi_daywise": approach_gurobi_daywise,
 }
 
 
@@ -68,14 +72,14 @@ def main():
     )
     parser.add_argument(
         "--approach",
-        choices=["event", "hmm", "fhmm", "fhmm_1", "fhmm_1_dc", "fhmm_1_survey", "template", "event_prior", "all"],
+        choices=["event", "hmm", "fhmm", "fhmm_1", "fhmm_1_dc", "template", "event_prior", "gurobi", "gurobi_daywise", "all"],
         default="all",
         help="Disaggregation approach to run (default: all)",
     )
     parser.add_argument(
         "--no-plots",
         action="store_true",
-        help="Skip daily plots (faster execution)",
+        help="Skip weekly plots (faster execution)",
     )
     parser.add_argument(
         "--json-dir",
@@ -87,7 +91,7 @@ def main():
         default="analysis",
         help="Output directory for results (default: analysis)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args() 
 
     # Determine which IMEIs to process
     if args.imei:
@@ -143,9 +147,12 @@ def main():
             approach_name = approach_key
             devices = _resolve_devices_for_approach(devices_by_imei[imei], approach_name)
             print(f"Processing IMEI {imei} — approach {approach_name}...")
+            print(f"signals: {signal[:50]}, devices: {len(devices)}")
+
             try:
-                disaggregation = approach_module.run(signal, devices)
+                disaggregation = approach_module.run(signal, devices, time_limit=180)
                 results[imei][approach_name] = disaggregation
+
 
                 save_results(
                     signal=signal,
@@ -153,7 +160,10 @@ def main():
                     imei=imei,
                     approach_name=approach_name,
                     output_dir=args.output_dir,
-                    skip_daily_plots=args.no_plots,
+                    skip_weekly_plots=args.no_plots,
+                    temporal_plot_granularity=(
+                        "daily" if approach_name == "gurobi_daywise" else "weekly"
+                    ),
                 )
             except Exception as e:
                 msg = f"ERROR IMEI {imei}, approach {approach_name}: {e}\n{traceback.format_exc()}"

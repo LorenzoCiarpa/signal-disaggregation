@@ -244,7 +244,7 @@ def get_device_profiles(
         device_dir: Directory containing per-IMEI JSON files.
 
     Returns:
-        List of DeviceProfile instances for all modeled devices.
+        List of DeviceProfile instances for the supported device set.
     """
     path = os.path.join(device_dir, f"{imei}.json")
     with open(path, "r", encoding="utf-8") as f:
@@ -253,11 +253,22 @@ def get_device_profiles(
     devices_data = data.get("devices", {})
     profiles: list[DeviceProfile] = []
 
+    legacy_fridge_info = devices_data.get("Frigorifero", {})
+
     for device_name, kb_entry in DEVICE_KNOWLEDGE_BASE.items():
         device_info = devices_data.get(device_name, {})
-        present = bool(device_info.get("present", False))
+        if device_name == "Frigorifero principale":
+            present = bool(device_info.get("present", False)) or bool(
+                legacy_fridge_info.get("present", False)
+            )
+            frequency_str = device_info.get("frequency", "") or legacy_fridge_info.get(
+                "frequency", ""
+            )
+        else:
+            present = bool(device_info.get("present", False))
+            frequency_str = device_info.get("frequency", "") if device_info else ""
+
         prior_weight = 1.0 if present else 0.05
-        frequency_str = device_info.get("frequency", "") if device_info else ""
         frequency_per_week = parse_frequency(frequency_str)
 
         profile = DeviceProfile(

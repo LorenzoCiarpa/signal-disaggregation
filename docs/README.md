@@ -51,7 +51,7 @@ signal-disaggregation/
 │       ├── approach_fhmm.py         # Approccio C: Factorial HMM semplificato
 │       ├── approach_template.py     # Approccio D: Template matching
 │       ├── approach_event_prior.py  # Approccio E: Event-based con prior bayesiano
-│       ├── output.py              # Generazione CSV, grafici giornalieri, report energetico
+│       ├── output.py              # Generazione CSV, grafici settimanali, report energetico
 │       └── benchmark.py           # Metriche proxy e ranking degli approcci
 ├── analysis/                      # Output generato dalla pipeline
 ├── other_data/                    # Statistiche e CSV di supporto
@@ -66,7 +66,7 @@ signal-disaggregation/
 | `preprocessing.py` | Carica i JSON, filtra record invalidi e spike (>10kW), ricampiona a 1 min, gestisce i buchi (NaN) |
 | `devices.py` | Definisce `DeviceProfile` (knowledge base dispositivi con potenza tipica, durata, duty cycle), carica l'inventario per IMEI e assegna `prior_weight` (1.0=presente, 0.05=assente) |
 | `approach_*.py` | Ognuno implementa una funzione `run(signal, devices) -> dict[str, pd.Series]` con lo stesso formato di output |
-| `output.py` | Salva CSV di disaggregazione, grafici giornalieri (PNG), report energetico a barre (kWh) |
+| `output.py` | Salva CSV di disaggregazione, grafici settimanali (PNG), report energetico a barre (kWh) |
 | `benchmark.py` | Calcola metriche di qualità proxy (MAE, RMSE, errore energetico, consistenza temporale) e produce ranking + heatmap |
 
 ---
@@ -121,7 +121,7 @@ La pipeline viene eseguita dallo script `scripts/run_disaggregation.py` e segue 
       dict[device_name → pd.Series di potenza stimata]
 
 4. OUTPUT (output.py)
-   └─ Per ogni (IMEI, approccio): salva CSV + grafici giornalieri + report energetico
+   └─ Per ogni (IMEI, approccio): salva CSV + grafici settimanali + report energetico
 
 5. BENCHMARK (benchmark.py)
    └─ Calcola metriche proxy per tutte le combinazioni (IMEI, approccio)
@@ -204,8 +204,8 @@ analysis/
     └── {approccio}/               # event, hmm, fhmm, template, event_prior
         ├── disaggregation.csv     # Serie temporale disaggregata (ISO8601)
         ├── energy_report.png      # Grafico a barre kWh per dispositivo
-        └── daily_plots/
-            └── {YYYY-MM-DD}.png   # Grafico giornaliero per ogni giorno
+      └── weekly_plots/
+         └── {YYYY-MM-DD}_to_{YYYY-MM-DD}.png   # Grafico settimanale per ogni settimana
 ```
 
 ### Dettaglio dei file di output
@@ -218,9 +218,9 @@ CSV con colonne:
 - Una colonna per ogni dispositivo (potenza stimata: 0 o `p_typical_w`)
 - `residuo` — differenza tra misurato e somma dei dispositivi stimati
 
-#### Grafici giornalieri (`daily_plots/{YYYY-MM-DD}.png`)
+#### Grafici settimanali (`weekly_plots/{YYYY-MM-DD}_to_{YYYY-MM-DD}.png`)
 
-Per ogni giorno con dati disponibili:
+Per ogni settimana con dati disponibili:
 - Linea grigia: segnale aggregato misurato ("Totale misurato")
 - Aree colorate sovrapposte: contributi stimati per ogni dispositivo attivo (media > 5W)
 - Linea nera tratteggiata: residuo non spiegato
@@ -276,7 +276,7 @@ Questo processa tutti i 6 IMEI con tutti e 5 gli approcci, genera grafici e benc
 |------|---------|-------------|
 | `--imei IMEI` | tutti i 6 | Processa solo un singolo IMEI |
 | `--approach {event,hmm,fhmm,template,event_prior,all}` | `all` | Esegue solo un approccio specifico |
-| `--no-plots` | disattivato | Salta i grafici giornalieri (molto più veloce) |
+| `--no-plots` | disattivato | Salta i grafici settimanali (molto più veloce) |
 | `--json-dir DIR` | `json` | Cartella con i file JSON di input |
 | `--output-dir DIR` | `analysis` | Cartella di output |
 
@@ -286,7 +286,7 @@ Questo processa tutti i 6 IMEI con tutti e 5 gli approcci, genera grafici e benc
 # Solo un IMEI, solo l'approccio FHMM
 python3 scripts/run_disaggregation.py --imei 86853106211162 --approach fhmm
 
-# Tutti gli IMEI, tutti gli approcci, senza grafici giornalieri (veloce)
+# Tutti gli IMEI, tutti gli approcci, senza grafici settimanali (veloce)
 python3 scripts/run_disaggregation.py --no-plots
 
 # Solo event-based, con output in una cartella diversa
@@ -298,8 +298,8 @@ python3 scripts/run_disaggregation.py --help
 
 ### Nota sulle performance
 
-- L'esecuzione completa (6 IMEI × 5 approcci + grafici giornalieri) può richiedere diversi minuti.
-- Con `--no-plots` si risparmia molto tempo: i grafici giornalieri sono il collo di bottiglia.
+- L'esecuzione completa (6 IMEI × 5 approcci + grafici settimanali) può richiedere diversi minuti.
+- Con `--no-plots` si risparmia molto tempo: i grafici settimanali sono il collo di bottiglia.
 - L'approccio HMM è il più lento per la fase di fitting del modello.
 - L'approccio FHMM è computazionalmente intensivo per le iterazioni di convergenza.
 
