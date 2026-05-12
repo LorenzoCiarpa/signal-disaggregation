@@ -1,0 +1,9 @@
+approach,label,mean_mae_recon,n_households
+event,Event-based,151.44,6
+event_prior,Event + prior,150.40,6
+fhmm,FHMM,71.35,6
+fhmm_1,FHMM-1 peak,80.92,6
+fhmm_1_dc,FHMM-1 duty avg,27.64,6
+gurobi_daywise,Gurobi daywise,77.02,6
+hmm,HMM,2110.03,6
+template,Template,1149.56,6

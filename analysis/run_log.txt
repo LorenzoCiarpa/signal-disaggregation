@@ -104,3 +104,133 @@ IMEIs: ['86684007269887']
 Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1', 'fhmm_1_dc', 'fhmm_1_survey', 'template', 'event_prior']
 === Run finished at 2026-05-05T01:14:14.925331 (duration: 0:01:15.351906) ===
 No errors.
+
+=== Run started at 2026-05-12T15:47:47.334069 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T15:48:11.850387 (duration: 0:00:24.516318) ===
+No errors.
+
+=== Run started at 2026-05-12T15:48:44.921528 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi']
+=== Run finished at 2026-05-12T15:48:55.566776 (duration: 0:00:10.645248) ===
+No errors.
+
+=== Run started at 2026-05-12T15:58:52.676741 ===
+IMEIs: ['86684007269887']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T15:59:32.907070 (duration: 0:00:40.230329) ===
+No errors.
+
+=== Run started at 2026-05-12T16:00:10.297626 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T16:00:37.352716 (duration: 0:00:27.055090) ===
+No errors.
+
+=== Run started at 2026-05-12T16:26:00.351321 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T16:29:10.985138 (duration: 0:03:10.633817) ===
+No errors.
+
+=== Run started at 2026-05-12T16:30:25.515460 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+
+=== Run started at 2026-05-12T16:35:16.202775 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+
+=== Run started at 2026-05-12T16:45:12.204912 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T16:46:43.600373 (duration: 0:01:31.395461) ===
+No errors.
+
+=== Run started at 2026-05-12T16:47:18.830762 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T16:47:19.014374 (duration: 0:00:00.183612) ===
+Errors (1):
+  - ERROR IMEI 86684007269889, approach gurobi_daywise: name 'constrained_v1' is not defined
+
+=== Run started at 2026-05-12T16:47:39.015591 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T16:47:39.202457 (duration: 0:00:00.186866) ===
+Errors (1):
+  - ERROR IMEI 86684007269889, approach gurobi_daywise: constrained_v1() got an unexpected keyword argument 'allowed_on_windows_by_device'
+
+=== Run started at 2026-05-12T16:47:44.552498 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T16:50:05.174737 (duration: 0:02:20.622239) ===
+No errors.
+
+=== Run started at 2026-05-12T17:00:37.579406 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T17:00:44.718087 (duration: 0:00:07.138681) ===
+No errors.
+
+=== Run started at 2026-05-12T17:00:56.518631 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T17:01:22.911980 (duration: 0:00:26.393349) ===
+No errors.
+
+=== Run started at 2026-05-12T18:04:28.850136 ===
+IMEIs: ['86684007269887']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T18:05:08.618954 (duration: 0:00:39.768818) ===
+No errors.
+
+=== Run started at 2026-05-12T18:07:35.885673 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T18:10:24.238768 (duration: 0:02:48.353095) ===
+No errors.
+
+=== Run started at 2026-05-12T22:53:41.989175 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['gurobi_multiple_v2_5']
+=== Run finished at 2026-05-12T22:53:43.829130 (duration: 0:00:01.839955) ===
+Errors (6):
+  - ERROR IMEI 86853106211162, approach gurobi_multiple_v2_5: _PartialApproach.run() got an unexpected keyword argument 'time_limit'
+  - ERROR IMEI 86684007269866, approach gurobi_multiple_v2_5: _PartialApproach.run() got an unexpected keyword argument 'time_limit'
+  - ERROR IMEI 86853106211179, approach gurobi_multiple_v2_5: _PartialApproach.run() got an unexpected keyword argument 'time_limit'
+  - ERROR IMEI 86684007269887, approach gurobi_multiple_v2_5: _PartialApproach.run() got an unexpected keyword argument 'time_limit'
+  - ERROR IMEI 86853106211173, approach gurobi_multiple_v2_5: _PartialApproach.run() got an unexpected keyword argument 'time_limit'
+  - ERROR IMEI 86684007269889, approach gurobi_multiple_v2_5: _PartialApproach.run() got an unexpected keyword argument 'time_limit'
+
+=== Run started at 2026-05-12T22:54:56.949785 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_multiple_v2_5']
+
+=== Run started at 2026-05-12T23:06:35.448704 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['gurobi_multiple_v2_5']
+
+=== Run started at 2026-05-12T23:41:46.223855 ===
+IMEIs: ['86684007269889']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-12T23:42:12.019940 (duration: 0:00:25.796085) ===
+No errors.
+
+=== Run started at 2026-05-12T23:53:47.289379 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_multiple_3']
+=== Run finished at 2026-05-12T23:55:32.530233 (duration: 0:01:45.240854) ===
+No errors.
+
+=== Run started at 2026-05-12T23:57:08.023560 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_multiple_v1_3']
+
+=== Run started at 2026-05-12T23:59:29.395176 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_multiple_v1_3']
+=== Run finished at 2026-05-13T00:12:46.064670 (duration: 0:13:16.669494) ===
+No errors.

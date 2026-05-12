@@ -9,6 +9,7 @@ Usage:
 import argparse
 import datetime
 import functools
+import inspect
 import os
 import sys
 import traceback
@@ -27,6 +28,7 @@ from scripts.nilm import approach_template
 from scripts.nilm import approach_event_prior
 from scripts.nilm import approach_gurobi
 from scripts.nilm import approach_gurobi_daywise
+from scripts.nilm import gurobi_multiple
 from scripts.nilm.output import save_results
 from scripts.nilm.benchmark import run_benchmark
 
@@ -36,9 +38,23 @@ class _PartialApproach:
 
     def __init__(self, module, **kwargs):
         self._run = functools.partial(module.run, **kwargs)
+        self._signature = inspect.signature(module.run)
+        self._accepts_var_kwargs = any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in self._signature.parameters.values()
+        )
 
-    def run(self, signal, devices):
-        return self._run(signal, devices)
+    def _filter_kwargs(self, kwargs):
+        if self._accepts_var_kwargs:
+            return kwargs
+        return {
+            key: value
+            for key, value in kwargs.items()
+            if key in self._signature.parameters
+        }
+
+    def run(self, signal, devices, **kwargs):
+        return self._run(signal, devices, **self._filter_kwargs(kwargs))
 
 
 def _resolve_devices_for_approach(device_bundle, approach_name: str):
@@ -58,6 +74,36 @@ APPROACH_MAP = {
     "event_prior": approach_event_prior,
     "gurobi": approach_gurobi,
     "gurobi_daywise": approach_gurobi_daywise,
+    "gurobi_multiple_3": _PartialApproach(
+        gurobi_multiple,
+        n_power_levels=3,
+        constraint_version="unconstrained",
+    ),
+    "gurobi_multiple_v1_3": _PartialApproach(
+        gurobi_multiple,
+        n_power_levels=3,
+        constraint_version="v1",
+    ),
+    "gurobi_multiple_v2_3": _PartialApproach(
+        gurobi_multiple,
+        n_power_levels=3,
+        constraint_version="v2",
+    ),
+    "gurobi_multiple_5": _PartialApproach(
+        gurobi_multiple,
+        n_power_levels=5,
+        constraint_version="unconstrained",
+    ),
+    "gurobi_multiple_v1_5": _PartialApproach(
+        gurobi_multiple,
+        n_power_levels=5,
+        constraint_version="v1",
+    ),
+    "gurobi_multiple_v2_5": _PartialApproach(
+        gurobi_multiple,
+        n_power_levels=5,
+        constraint_version="v2",
+    ),
 }
 
 
@@ -72,7 +118,24 @@ def main():
     )
     parser.add_argument(
         "--approach",
-        choices=["event", "hmm", "fhmm", "fhmm_1", "fhmm_1_dc", "template", "event_prior", "gurobi", "gurobi_daywise", "all"],
+        choices=[
+            "event",
+            "hmm",
+            "fhmm",
+            "fhmm_1",
+            "fhmm_1_dc",
+            "template",
+            "event_prior",
+            "gurobi",
+            "gurobi_daywise",
+            "gurobi_multiple_3",
+            "gurobi_multiple_v1_3",
+            "gurobi_multiple_v2_3",
+            "gurobi_multiple_5",
+            "gurobi_multiple_v1_5",
+            "gurobi_multiple_v2_5",
+            "all",
+        ],
         default="all",
         help="Disaggregation approach to run (default: all)",
     )
@@ -162,7 +225,10 @@ def main():
                     output_dir=args.output_dir,
                     skip_weekly_plots=args.no_plots,
                     temporal_plot_granularity=(
-                        "daily" if approach_name == "gurobi_daywise" else "weekly"
+                        "daily"
+                        if approach_name == "gurobi_daywise"
+                        or approach_name.startswith("gurobi_multiple")
+                        else "weekly"
                     ),
                 )
             except Exception as e:
