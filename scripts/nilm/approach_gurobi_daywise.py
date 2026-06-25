@@ -118,8 +118,8 @@ def run(
         if day_signal.empty:
             continue
         
-        # if idx == 5: 
-        #     break
+        if idx == 5: 
+            break
         
 
         day_result, _ = solve_unconstrained_window(

@@ -13,6 +13,55 @@ import pandas as pd
 import numpy as np
 
 
+DEVICE_COLOR_MAP = {
+    "Frigorifero": "#4E79A7",
+    "Frigorifero principale": "#4E79A7",
+    "Frigorifero secondario": "#A0CBE8",
+    "Congelatore": "#59A14F",
+    "Lavatrice": "#E15759",
+    "Asciugatrice": "#FF9D9A",
+    "Lavastoviglie": "#F28E2B",
+    "Forno": "#9C755F",
+    "Piano cottura": "#B07AA1",
+    "Microonde": "#EDC948",
+    "Boiler": "#B6992D",
+    "Climatizzatore": "#76B7B2",
+    "Televisori": "#AF7AA1",
+    "Computer": "#9D7660",
+    "Console": "#D37295",
+    "Auto elettrica": "#E15759",
+    "Residuo": "#BAB0AC",
+}
+
+
+def _device_color(device_name: str) -> str:
+    """Return a stable color for a device name across all plots."""
+    if device_name in DEVICE_COLOR_MAP:
+        return DEVICE_COLOR_MAP[device_name]
+
+    palette = plt.cm.tab20.colors
+    return palette[sum(ord(char) for char in device_name) % len(palette)]
+
+
+def _build_active_device_layers(
+    disaggregation: dict,
+    mask: pd.Series | np.ndarray,
+) -> tuple[list[tuple[str, pd.Series]], pd.Series | None]:
+    """Return active device layers and their cumulative sum for the selected time slice."""
+    active_layers = []
+    cumulative = None
+
+    for name, series in disaggregation.items():
+        sliced = series[mask].fillna(0)
+        if sliced.mean() <= 5.0:
+            continue
+
+        active_layers.append((name, sliced))
+        cumulative = sliced.copy() if cumulative is None else cumulative.add(sliced, fill_value=0)
+
+    return active_layers, cumulative
+
+
 def save_results(
     signal: pd.Series,
     disaggregation: dict,
@@ -31,19 +80,23 @@ def save_results(
         approach_name: Name of the disaggregation approach.
         output_dir: Root output directory (default: 'analysis').
         skip_weekly_plots: If True, skip saving weekly PNG plots (default: False).
-        temporal_plot_granularity: 'weekly' or 'daily' for temporal plot output.
+        temporal_plot_granularity: 'weekly', 'daily', or 'both' for temporal plot output.
     """
     base_dir = os.path.join(output_dir, imei, approach_name)
-    temporal_dir_name = "daily_plots" if temporal_plot_granularity == "daily" else "weekly_plots"
-    temporal_dir = os.path.join(base_dir, temporal_dir_name)
-    os.makedirs(temporal_dir, exist_ok=True)
+    weekly_dir = os.path.join(base_dir, "weekly_plots")
+    daily_dir = os.path.join(base_dir, "daily_plots")
+
+    if temporal_plot_granularity in {"weekly", "both"}:
+        os.makedirs(weekly_dir, exist_ok=True)
+    if temporal_plot_granularity in {"daily", "both"}:
+        os.makedirs(daily_dir, exist_ok=True)
 
     _save_csv(signal, disaggregation, base_dir)
     if not skip_weekly_plots:
-        if temporal_plot_granularity == "daily":
-            _save_daily_plots(signal, disaggregation, imei, approach_name, temporal_dir)
-        else:
-            _save_weekly_plots(signal, disaggregation, imei, approach_name, temporal_dir)
+        if temporal_plot_granularity in {"weekly", "both"}:
+            _save_weekly_plots(signal, disaggregation, imei, approach_name, weekly_dir)
+        if temporal_plot_granularity in {"daily", "both"}:
+            _save_daily_plots(signal, disaggregation, imei, approach_name, daily_dir)
     _save_energy_report(signal, disaggregation, imei, approach_name, base_dir)
 
 
@@ -73,17 +126,9 @@ def _save_weekly_plots(
     if signal.empty:
         return
 
-    # Determine which devices have meaningful power (mean > 5W ignoring NaN)
-    active_devices = {
-        name: series
-        for name, series in disaggregation.items()
-        if series.fillna(0).mean() > 5.0
-    }
-
     # Group by calendar week.
     week_periods = signal.index.to_period("W-SUN")
     weeks = week_periods.unique().sort_values()
-    colors = plt.cm.tab20.colors  # up to 20 distinct colors
 
     for week in weeks:
         week_start = week.start_time.strftime("%Y-%m-%d")
@@ -97,41 +142,57 @@ def _save_weekly_plots(
 
         fig, ax = plt.subplots(figsize=(16, 5))
 
+        active_layers, device_sum = _build_active_device_layers(disaggregation, mask)
+        stack_base = pd.Series(0.0, index=week_signal.index)
+
         # Aggregate signal in grey
         ax.plot(
             week_signal.index,
             week_signal.values,
-            color="grey",
-            linewidth=1.5,
+            color="black",
+            linewidth=1.4,
             label="Totale misurato",
-            zorder=10,
+            zorder=20,
         )
 
         # Stacked colored layers for active devices
-        for idx, (dev_name, dev_series) in enumerate(active_devices.items()):
-            week_dev = dev_series[mask].fillna(0)
-            color = colors[idx % len(colors)]
+        for idx, (dev_name, week_dev) in enumerate(active_layers):
+            color = _device_color(dev_name)
+            upper = stack_base.add(week_dev, fill_value=0)
             ax.fill_between(
                 week_signal.index,
-                0,
-                week_dev.values,
-                alpha=0.5,
+                stack_base.values,
+                upper.values,
+                alpha=0.65,
                 color=color,
                 label=dev_name,
+                linewidth=0,
+                zorder=5 + idx,
             )
+            stack_base = upper
 
-        # Residual in dashed black
-        device_sum = sum(
-            s[mask].fillna(0) for s in active_devices.values()
-        ) if active_devices else pd.Series(0, index=week_signal.index)
+        if device_sum is None:
+            device_sum = pd.Series(0.0, index=week_signal.index)
+
         residual = week_signal.fillna(0) - device_sum
+        ax.fill_between(
+            week_signal.index,
+            device_sum.values,
+            week_signal.fillna(0).values,
+            where=(residual >= 0).values,
+            color="lightgrey",
+            alpha=0.35,
+            label="Residuo positivo",
+            zorder=15,
+        )
         ax.plot(
             week_signal.index,
             residual.values,
             color="black",
-            linewidth=1.0,
+            linewidth=0.9,
             linestyle="--",
             label="Residuo",
+            zorder=18,
         )
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d\n%H:%M"))
@@ -160,15 +221,8 @@ def _save_daily_plots(
     if signal.empty:
         return
 
-    active_devices = {
-        name: series
-        for name, series in disaggregation.items()
-        if series.fillna(0).mean() > 5.0
-    }
-
     day_periods = signal.index.to_period("D")
     days = day_periods.unique().sort_values()
-    colors = plt.cm.tab20.colors
 
     for day in days:
         day_label = day.start_time.strftime("%Y-%m-%d")
@@ -180,38 +234,55 @@ def _save_daily_plots(
 
         fig, ax = plt.subplots(figsize=(16, 5))
 
+        active_layers, device_sum = _build_active_device_layers(disaggregation, mask)
+        stack_base = pd.Series(0.0, index=day_signal.index)
+
         ax.plot(
             day_signal.index,
             day_signal.values,
-            color="grey",
-            linewidth=1.5,
+            color="black",
+            linewidth=1.4,
             label="Totale misurato",
-            zorder=10,
+            zorder=20,
         )
 
-        for idx, (dev_name, dev_series) in enumerate(active_devices.items()):
-            day_dev = dev_series[mask].fillna(0)
-            color = colors[idx % len(colors)]
+        for idx, (dev_name, day_dev) in enumerate(active_layers):
+            color = _device_color(dev_name)
+            upper = stack_base.add(day_dev, fill_value=0)
             ax.fill_between(
                 day_signal.index,
-                0,
-                day_dev.values,
-                alpha=0.5,
+                stack_base.values,
+                upper.values,
+                alpha=0.65,
                 color=color,
                 label=dev_name,
+                linewidth=0,
+                zorder=5 + idx,
             )
+            stack_base = upper
 
-        device_sum = sum(
-            s[mask].fillna(0) for s in active_devices.values()
-        ) if active_devices else pd.Series(0, index=day_signal.index)
+        if device_sum is None:
+            device_sum = pd.Series(0.0, index=day_signal.index)
+
         residual = day_signal.fillna(0) - device_sum
+        ax.fill_between(
+            day_signal.index,
+            device_sum.values,
+            day_signal.fillna(0).values,
+            where=(residual >= 0).values,
+            color="lightgrey",
+            alpha=0.35,
+            label="Residuo positivo",
+            zorder=15,
+        )
         ax.plot(
             day_signal.index,
             residual.values,
             color="black",
-            linewidth=1.0,
+            linewidth=0.9,
             linestyle="--",
             label="Residuo",
+            zorder=18,
         )
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
@@ -261,11 +332,10 @@ def _save_energy_report(
     total = sum(values) if sum(values) > 0 else 1.0
 
     fig, ax = plt.subplots(figsize=(10, max(4, len(names) * 0.5)))
-    colors = plt.cm.tab20.colors
     bars = ax.barh(
         names,
         values,
-        color=[colors[i % len(colors)] for i in range(len(names))],
+        color=[_device_color(name) for name in names],
         edgecolor="white",
     )
 

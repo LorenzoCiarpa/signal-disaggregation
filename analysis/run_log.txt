@@ -234,3 +234,203 @@ IMEIs: ['86684007269866']
 Approaches: ['gurobi_multiple_v1_3']
 === Run finished at 2026-05-13T00:12:46.064670 (duration: 0:13:16.669494) ===
 No errors.
+
+=== Run started at 2026-05-13T11:28:16.423931 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1', 'fhmm_1_dc', 'fhmm_1_survey', 'template', 'event_prior', 'gurobi', 'gurobi_daywise', 'gurobi_multiple_3', 'gurobi_multiple_v1_3', 'gurobi_multiple_v2_3', 'gurobi_multiple_5', 'gurobi_multiple_v1_5', 'gurobi_multiple_v2_5']
+
+=== Run started at 2026-05-13T12:26:37.105907 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi']
+=== Run finished at 2026-05-13T12:26:49.637053 (duration: 0:00:12.531146) ===
+No errors.
+
+=== Run started at 2026-05-13T12:29:34.957038 ===
+IMEIs: ['8664007269866']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-13T12:29:34.957120 (duration: 0:00:00.000082) ===
+Errors (1):
+  - ERROR loading IMEI 8664007269866: [Errno 2] No such file or directory: 'json/iot_devices.8664007269866.json'
+
+=== Run started at 2026-05-13T12:29:43.469071 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-13T12:30:14.537495 (duration: 0:00:31.068424) ===
+No errors.
+
+=== Run started at 2026-05-13T12:35:49.027488 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-13T12:36:18.160011 (duration: 0:00:29.132523) ===
+No errors.
+
+=== Run started at 2026-05-13T12:43:03.621874 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1_survey', 'gurobi_daywise']
+=== Run finished at 2026-05-13T12:43:37.382949 (duration: 0:00:33.761075) ===
+Errors (3):
+  - ERROR IMEI 86684007269866, approach event: run() got an unexpected keyword argument 'time_limit'
+  - ERROR IMEI 86684007269866, approach hmm: run() got an unexpected keyword argument 'time_limit'
+  - ERROR IMEI 86684007269866, approach fhmm: run() got an unexpected keyword argument 'time_limit'
+
+=== Run started at 2026-05-13T12:48:24.588560 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1_survey', 'gurobi_daywise']
+=== Run finished at 2026-05-13T12:48:57.526835 (duration: 0:00:32.938275) ===
+No errors.
+
+=== Run started at 2026-05-13T13:02:03.882549 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1_survey', 'gurobi_daywise']
+=== Run finished at 2026-05-13T13:02:59.709668 (duration: 0:00:55.827119) ===
+No errors.
+
+=== Run started at 2026-05-13T13:07:33.298240 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1_survey', 'gurobi_daywise']
+=== Run finished at 2026-05-13T13:08:29.166345 (duration: 0:00:55.868105) ===
+No errors.
+
+=== Run started at 2026-05-13T13:09:14.296249 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1_survey', 'gurobi_daywise']
+=== Run finished at 2026-05-13T13:10:10.058207 (duration: 0:00:55.761958) ===
+No errors.
+
+=== Run started at 2026-05-13T13:16:33.677178 ===
+IMEIs: ['86684007269866']
+Approaches: ['event']
+=== Run finished at 2026-05-13T13:16:47.319678 (duration: 0:00:13.642500) ===
+No errors.
+
+=== Run started at 2026-05-13T13:23:31.117029 ===
+IMEIs: ['86684007269866']
+Approaches: ['event', 'hmm', 'fhmm', 'fhmm_1_survey', 'gurobi_daywise']
+=== Run finished at 2026-05-13T13:25:05.082310 (duration: 0:01:33.965281) ===
+No errors.
+
+=== Run started at 2026-05-25T14:37:20.611590 ===
+IMEIs: ['86684007269866']
+Approaches: ['event']
+=== Run finished at 2026-05-25T14:37:38.721534 (duration: 0:00:18.109944) ===
+No errors.
+
+=== Run started at 2026-05-25T14:38:59.544408 ===
+IMEIs: ['86684007269866']
+Approaches: ['event']
+=== Run finished at 2026-05-25T14:39:16.981097 (duration: 0:00:17.436689) ===
+No errors.
+
+=== Run started at 2026-05-25T14:40:40.870809 ===
+IMEIs: ['86684007269866']
+Approaches: ['hmm']
+=== Run finished at 2026-05-25T14:40:59.358002 (duration: 0:00:18.487193) ===
+No errors.
+
+=== Run started at 2026-05-25T14:41:14.728257 ===
+IMEIs: ['86684007269866']
+Approaches: ['fhmm']
+=== Run finished at 2026-05-25T14:41:30.922775 (duration: 0:00:16.194518) ===
+No errors.
+
+=== Run started at 2026-05-25T14:42:28.216874 ===
+IMEIs: ['86684007269866']
+Approaches: ['fhmm_1_survey']
+
+=== Run started at 2026-05-25T14:43:03.908836 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-05-25T14:43:42.353039 (duration: 0:00:38.444203) ===
+No errors.
+
+=== Run started at 2026-06-18T18:51:26.782361 ===
+IMEIs: ['86853106211162']
+Approaches: ['gurobi_15min']
+
+=== Run started at 2026-06-18T18:51:47.301780 ===
+IMEIs: ['86853106211162']
+Approaches: ['gurobi_15min']
+=== Run finished at 2026-06-18T18:51:53.017628 (duration: 0:00:26.235267) ===
+No errors.
+=== Run finished at 2026-06-18T18:52:34.414753 (duration: 0:00:47.112973) ===
+No errors.
+
+=== Run started at 2026-06-19T00:10:05.745422 ===
+IMEIs: ['86853106211162', '86684007269866', '86853106211179', '86684007269887', '86853106211173', '86684007269889']
+Approaches: ['gurobi_soft']
+
+=== Run started at 2026-06-19T00:10:31.663821 ===
+IMEIs: ['86853106211162']
+Approaches: ['gurobi_soft']
+=== Run finished at 2026-06-19T00:11:35.669963 (duration: 0:01:04.006142) ===
+No errors.
+
+=== Run started at 2026-06-19T00:13:25.671320 ===
+IMEIs: ['86853106211162']
+Approaches: ['gurobi_multistate']
+
+=== Run started at 2026-06-19T00:19:20.231942 ===
+IMEIs: ['86853106211162']
+Approaches: ['gurobi_multistate_30min']
+
+=== Run started at 2026-06-19T05:35:39.638735 ===
+IMEIs: ['86853106211162']
+Approaches: ['gurobi_multistate_30min']
+=== Run finished at 2026-06-19T05:39:02.640162 (duration: 0:03:23.001427) ===
+No errors.
+
+=== Run started at 2026-06-19T05:59:03.775603 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_daywise']
+=== Run finished at 2026-06-19T05:59:24.755843 (duration: 0:00:20.980240) ===
+No errors.
+
+=== Run started at 2026-06-19T06:01:20.592921 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_15min']
+=== Run finished at 2026-06-19T06:01:39.991910 (duration: 0:00:19.398989) ===
+No errors.
+
+=== Run started at 2026-06-19T06:01:52.126909 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_soft']
+=== Run finished at 2026-06-19T06:02:11.783860 (duration: 0:00:19.656951) ===
+No errors.
+
+=== Run started at 2026-06-19T06:02:20.228422 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_multistate']
+=== Run finished at 2026-06-19T06:10:03.868492 (duration: 0:07:43.640070) ===
+No errors.
+
+=== Run started at 2026-06-19T06:32:58.082633 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_activation']
+
+=== Run started at 2026-06-19T06:37:05.111603 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_activation']
+=== Run finished at 2026-06-19T06:39:35.296935 (duration: 0:02:30.185332) ===
+No errors.
+
+=== Run started at 2026-06-19T07:08:50.687811 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_full']
+
+=== Run started at 2026-06-19T07:09:46.137250 ===
+IMEIs: ['86684007269866']
+Approaches: ['gurobi_full']
+=== Run finished at 2026-06-19T07:13:19.333462 (duration: 0:03:33.196212) ===
+No errors.
+
+=== Run started at 2026-06-19T10:16:58.792498 ===
+IMEIs: ['86853106211162']
+Approaches: ['gurobi_full']
+=== Run finished at 2026-06-19T10:20:21.799154 (duration: 0:03:23.006656) ===
+No errors.
+
+=== Run started at 2026-06-19T10:20:41.835551 ===
+IMEIs: ['86853106211162']
+Approaches: ['fhmm_1_survey']
+=== Run finished at 2026-06-19T10:20:57.640989 (duration: 0:00:15.805438) ===
+No errors.
