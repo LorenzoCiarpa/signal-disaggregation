@@ -38,6 +38,10 @@ from scripts.nilm import approach_gurobi_multistate
 from scripts.nilm import approach_gurobi_activation
 from scripts.nilm import approach_gurobi_full
 from scripts.nilm import gurobi_multiple
+from scripts.nilm import approach_cvxpy
+from scripts.nilm import approach_cvxpy_activation
+from scripts.nilm import approach_cvxpy_full
+from scripts.nilm import approach_hsmm_survey
 from scripts.nilm.output import save_results
 from scripts.nilm.benchmark import run_benchmark
 
@@ -93,6 +97,9 @@ def _run_approach(approach_module, signal, devices, **kwargs):
     return run_callable(signal, devices, **filtered_kwargs)
 
 
+_DAY_START = 40  # skip this many days from the beginning of each signal
+_DAY_COUNT = 5    # number of days to process
+
 APPROACH_MAP = {
     "event": approach_event_based,
     "hmm": approach_hmm,
@@ -135,6 +142,25 @@ APPROACH_MAP = {
     "gurobi_full_30min": _PartialApproach(approach_gurobi_full, granularity_min=30),
     "gurobi_full_30min_max": _PartialApproach(approach_gurobi_full, granularity_min=30, resample_method="max"),
     "gurobi_full_30min_median": _PartialApproach(approach_gurobi_full, granularity_min=30, resample_method="median"),
+    # ---- Free-solver equivalents (CVXPY + SCIP, pip install cvxpy pyscipopt) ----
+    # cvxpy: binary ON/OFF, L2 error — mirrors gurobi_soft (v4)
+    "cvxpy": approach_cvxpy,
+    "cvxpy_max": _PartialApproach(approach_cvxpy, resample_method="max"),
+    "cvxpy_median": _PartialApproach(approach_cvxpy, resample_method="median"),
+    "cvxpy_30min": _PartialApproach(approach_cvxpy, granularity_min=30),
+    # cvxpy_activation: 3 power levels + activation penalty — mirrors gurobi_activation (v6)
+    "cvxpy_activation": approach_cvxpy_activation,
+    "cvxpy_activation_max": _PartialApproach(approach_cvxpy_activation, resample_method="max"),
+    "cvxpy_activation_median": _PartialApproach(approach_cvxpy_activation, resample_method="median"),
+    "cvxpy_activation_30min": _PartialApproach(approach_cvxpy_activation, granularity_min=30),
+    # cvxpy_full: always-on as variables, no baseline — mirrors gurobi_full (v7)
+    "cvxpy_full": approach_cvxpy_full,
+    "cvxpy_full_max": _PartialApproach(approach_cvxpy_full, resample_method="max"),
+    "cvxpy_full_median": _PartialApproach(approach_cvxpy_full, resample_method="median"),
+    "cvxpy_full_30min": _PartialApproach(approach_cvxpy_full, granularity_min=30),
+    # ---- HSMM with survey priors (pure numpy, no solver needed) ----
+    "hsmm_survey": approach_hsmm_survey,
+    "hsmm_survey_30min": _PartialApproach(approach_hsmm_survey, granularity_min=30),
     # "gurobi_multiple_3": _PartialApproach(
     #     gurobi_multiple,
     #     n_power_levels=3,
@@ -179,56 +205,20 @@ def main():
     )
     parser.add_argument(
         "--approach",
-        choices=[
-            "event",
-            "hmm",
-            "fhmm",
-            "fhmm_1",
-            "fhmm_1_dc",
-            "fhmm_1_survey",
-            "template",
-            "event_prior",
-            "gurobi",
-            "gurobi_daywise",
-            "gurobi_15min",
-            "gurobi_15min_max",
-            "gurobi_15min_median",
-            "gurobi_multiple_3",
-            "gurobi_multiple_v1_3",
-            "gurobi_multiple_v2_3",
-            "gurobi_multiple_5",
-            "gurobi_multiple_v1_5",
-            "gurobi_multiple_v2_5",
-            "gurobi_soft",
-            "gurobi_soft_max",
-            "gurobi_soft_median",
-            "gurobi_multistate",
-            "gurobi_multistate_max",
-            "gurobi_multistate_median",
-            "gurobi_multistate_30min",
-            "gurobi_multistate_30min_max",
-            "gurobi_multistate_30min_median",
-            "gurobi_activation",
-            "gurobi_activation_max",
-            "gurobi_activation_median",
-            "gurobi_activation_30min",
-            "gurobi_activation_30min_max",
-            "gurobi_activation_30min_median",
-            "gurobi_full",
-            "gurobi_full_max",
-            "gurobi_full_median",
-            "gurobi_full_30min",
-            "gurobi_full_30min_max",
-            "gurobi_full_30min_median",
-            "all",
-        ],
-        default="all",
-        help="Disaggregation approach to run (default: all)",
+        nargs="+",
+        default=["all"],
+        metavar="APPROACH",
+        help="One or more approaches to run, or 'all' (default: all)",
     )
     parser.add_argument(
         "--no-plots",
         action="store_true",
         help="Skip weekly plots (faster execution)",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show solver output per day (HiGHS, HSMM, etc.)",
     )
     parser.add_argument(
         "--json-dir",
@@ -258,10 +248,14 @@ def main():
         imeis = get_usable_imeis()
 
     # Determine which approaches to run
-    if args.approach == "all":
+    if args.approach == ["all"]:
         approaches = list(APPROACH_MAP.items())
     else:
-        approaches = [(args.approach, APPROACH_MAP[args.approach])]
+        unknown = [a for a in args.approach if a not in APPROACH_MAP and a != "all"]
+        if unknown:
+            parser.error(f"Unknown approach(es): {', '.join(unknown)}. Valid: {', '.join(APPROACH_MAP)}")
+        keys = list(APPROACH_MAP.keys()) if "all" in args.approach else args.approach
+        approaches = [(k, APPROACH_MAP[k]) for k in keys]
 
     # Ensure output dir exists
     os.makedirs(args.output_dir, exist_ok=True)
@@ -286,10 +280,23 @@ def main():
                 signals[imei] = load_imei_plateau_median(imei, json_dir=args.json_dir)
             else:
                 signals[imei] = load_imei(imei, json_dir=args.json_dir)
-            devices_by_imei[imei] = {
-                "default": get_device_profiles(imei),
-                "fhmm_1_survey": get_device_profiles_v2(imei),
+            profiles_v1 = get_device_profiles(imei)
+            profiles_v2 = get_device_profiles_v2(imei)
+            # Survey-aware approaches use v2 profiles (with time windows, duration bounds…)
+            _survey_approaches = {
+                "fhmm_1_survey",
+                "hsmm_survey", "hsmm_survey_30min",
+                "cvxpy", "cvxpy_max", "cvxpy_median", "cvxpy_30min",
+                "cvxpy_activation", "cvxpy_activation_max",
+                "cvxpy_activation_median", "cvxpy_activation_30min",
+                "cvxpy_full", "cvxpy_full_max",
+                "cvxpy_full_median", "cvxpy_full_30min",
             }
+            devices_by_imei[imei] = {
+                name: (profiles_v2 if name in _survey_approaches else profiles_v1)
+                for name in APPROACH_MAP
+            }
+            devices_by_imei[imei]["default"] = profiles_v1
         except Exception as e:
             msg = f"ERROR loading IMEI {imei}: {e}"
             print(msg)
@@ -302,6 +309,12 @@ def main():
         if imei not in signals:
             continue
         signal = signals[imei]
+        _unique_days = signal.index.normalize().unique().sort_values()
+        _start = min(_DAY_START, len(_unique_days))
+        _end = min(_DAY_START + _DAY_COUNT, len(_unique_days))
+        signal = signal[
+            (signal.index >= _unique_days[_start]) & (signal.index < _unique_days[_end])
+        ] if _start < _end else signal.iloc[0:0]
         results[imei] = {}
 
         for approach_key, approach_module in approaches:
@@ -319,7 +332,8 @@ def main():
                     approach_module,
                     signal,
                     devices,
-                    time_limit=180,
+                    time_limit=60,
+                    verbose=args.verbose,
                 )
                 results[imei][approach_name] = disaggregation
                 elapsed_time = time.time() - initial_time

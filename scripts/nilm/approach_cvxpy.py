@@ -1,10 +1,13 @@
 """
-Day-wise Gurobi NILM with soft time-window penalties and 3 power levels per device (constrained_v5).
+approach_cvxpy — Day-wise NILM via HiGHS L1-MILP (free, no license).
 
-Extends approach_gurobi_soft by allowing each device to operate at one of three
-power levels (low/mid/high = p_typical ± power_level_variation) rather than a
-single binary ON/OFF.  The transition, min-ON, and max-consecutive constraints
-all operate on the aggregate ON indicator (= 1 if any level is active).
+Drop-in replacement for approach_gurobi_soft.py.
+Uses constrained_highs() from highs_methods: L1 reconstruction error
++ soft time-window penalty + hard min/max ON duration constraints.
+No Gurobi, no CVXPY, no malloc crashes.
+
+Required installation (already present):
+    pip install highspy
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ import pandas as pd
 
 from scripts.nilm.baseline_load import estimate_always_on_baseline, split_baseline_by_device
 from scripts.nilm.devices import DeviceProfile
-from scripts.nilm.gurobi_methods import constrained_v5
+from scripts.nilm.highs_methods import constrained_highs
 
 GRANULARITY_MIN = 15
 RESAMPLE_METHODS = ("mean", "max", "min", "median")
@@ -60,25 +63,27 @@ def run(
     resample_method: str = "mean",
     granularity_min: int = GRANULARITY_MIN,
     time_window_penalty: float = 1.0,
-    power_level_variation: float = 0.15,
     verbose: bool = False,
 ) -> dict[str, pd.Series]:
-    """Disaggregate day by day with soft time-window penalties and 3 power levels.
+    """Disaggregate day by day with CVXPY + SCIP (free solver).
+
+    Identical pipeline to approach_gurobi_soft.run() — same baseline
+    estimation, same 15-min resampling, same per-day window, same MIQP
+    objective and constraints — but uses SCIP instead of Gurobi.
 
     Args:
         signal: 1-minute aggregate power series with DatetimeIndex.
         devices: Device profiles for the household.
-        time_limit: Gurobi time limit per daily chunk in seconds.
+        time_limit: SCIP time limit per daily chunk in seconds.
         baseline_mode: 'peak' or 'duty_avg' for always-on devices.
         baseline_method: Baseline estimator (see baseline_load module).
-        resample_method: Aggregation method for resampling ('mean','max','min','median').
+        resample_method: Aggregation method ('mean','max','min','median').
         granularity_min: Bin size in minutes (default 15).
-        time_window_penalty: Penalty per out-of-window active slot (default 1000.0).
-        power_level_variation: Fractional spread of low/high levels around p_typical (default 0.15).
-        verbose: If True, keep Gurobi console output.
+        time_window_penalty: Penalty factor per out-of-window active slot.
+        verbose: If True, show SCIP console output per day.
 
     Returns:
-        dict mapping device name -> power series (actual estimated W) aligned to signal.index.
+        dict mapping device name → power series aligned to signal.index (1-min).
     """
     nan_mask = signal.isna()
 
@@ -139,20 +144,19 @@ def run(
         if wins:
             allowed_wins[dev.name] = wins
 
-    _dp_idx = residual.index.tz_convert(None) if residual.index.tz is not None else residual.index
-    day_periods = _dp_idx.to_period("D")
+    _idx = residual.index.tz_convert(None) if residual.index.tz is not None else residual.index
+    day_periods = _idx.to_period("D")
     unique_days = day_periods.unique().sort_values()
 
     per_device_chunks: dict[str, list[pd.Series]] = {dev.name: [] for dev in present_events}
 
-    for day_idx, day in enumerate(unique_days):
+    for day in unique_days:
         day_mask = day_periods == day
         day_signal = residual[day_mask]
         if day_signal.dropna().empty:
             continue
-        
-        
-        day_result, info = constrained_v5(
+
+        day_result, info = constrained_highs(
             signal=day_signal,
             devices=present_events,
             time_limit=time_limit,
@@ -161,7 +165,6 @@ def run(
             max_consecutive_on_by_device=max_on or None,
             allowed_on_windows_by_device=allowed_wins or None,
             time_window_penalty=time_window_penalty,
-            power_level_variation=power_level_variation,
         )
 
         if verbose:
@@ -176,7 +179,11 @@ def run(
 
     for dev in present_events:
         chunks = per_device_chunks[dev.name]
-        combined_coarse = pd.concat(chunks).sort_index() if chunks else pd.Series(0.0, index=residual.index, dtype=float)
+        combined_coarse = (
+            pd.concat(chunks).sort_index()
+            if chunks
+            else pd.Series(0.0, index=residual.index, dtype=float)
+        )
         combined_1min = combined_coarse.reindex(signal.index, method="ffill").fillna(0.0)
         combined_1min[nan_mask] = np.nan
         result[dev.name] = combined_1min

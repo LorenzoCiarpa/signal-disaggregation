@@ -127,7 +127,8 @@ def _save_weekly_plots(
         return
 
     # Group by calendar week.
-    week_periods = signal.index.to_period("W-SUN")
+    _widx = signal.index.tz_convert(None) if signal.index.tz is not None else signal.index
+    week_periods = _widx.to_period("W-SUN")
     weeks = week_periods.unique().sort_values()
 
     for week in weeks:
@@ -221,7 +222,8 @@ def _save_daily_plots(
     if signal.empty:
         return
 
-    day_periods = signal.index.to_period("D")
+    _didx = signal.index.tz_convert(None) if signal.index.tz is not None else signal.index
+    day_periods = _didx.to_period("D")
     days = day_periods.unique().sort_values()
 
     for day in days:

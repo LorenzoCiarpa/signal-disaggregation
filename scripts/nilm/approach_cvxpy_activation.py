@@ -1,10 +1,19 @@
 """
-Day-wise Gurobi NILM with soft time-window penalties and 3 power levels per device (constrained_v5).
+approach_cvxpy_activation — Day-wise NILM with 3 power levels and activation
+penalty via HiGHS L1-MILP (free, no license, no crash risk).
 
-Extends approach_gurobi_soft by allowing each device to operate at one of three
-power levels (low/mid/high = p_typical ± power_level_variation) rather than a
-single binary ON/OFF.  The transition, min-ON, and max-consecutive constraints
-all operate on the aggregate ON indicator (= 1 if any level is active).
+Constraint structure identical to approach_gurobi_activation.py (constrained_v6):
+  - 3 power levels per device (low/mid/high = p_typical ± power_level_variation)
+  - Soft time-window penalty
+  - Per-activation penalty
+  - Hard min-ON and max-consecutive-ON constraints
+
+Objective: L1 (sum of absolute errors) instead of L2 (Gurobi).
+HiGHS handles only LP/MILP — no quadratic objective, no SCIP, no crash risk.
+Penalty scaling: × p_typical (not × p_typical² as in Gurobi), consistent with L1.
+
+Installation:
+    pip install highspy
 """
 
 from __future__ import annotations
@@ -16,18 +25,14 @@ import pandas as pd
 
 from scripts.nilm.baseline_load import estimate_always_on_baseline, split_baseline_by_device
 from scripts.nilm.devices import DeviceProfile
-from scripts.nilm.gurobi_methods import constrained_v5
+from scripts.nilm.highs_methods import constrained_highs_multistate
 
 GRANULARITY_MIN = 15
 RESAMPLE_METHODS = ("mean", "max", "min", "median")
 _MAX_ON_FACTOR = 1.5
 
 
-def resample_signal(
-    signal: pd.Series,
-    granularity_min: int = GRANULARITY_MIN,
-    method: str = "mean",
-) -> pd.Series:
+def resample_signal(signal: pd.Series, granularity_min: int = GRANULARITY_MIN, method: str = "mean") -> pd.Series:
     if method not in RESAMPLE_METHODS:
         raise ValueError(f"method must be one of {RESAMPLE_METHODS}, got {method!r}")
     return getattr(signal.resample(f"{granularity_min}min"), method)()
@@ -61,24 +66,31 @@ def run(
     granularity_min: int = GRANULARITY_MIN,
     time_window_penalty: float = 1.0,
     power_level_variation: float = 0.15,
+    activation_penalty: float = 1.0,
     verbose: bool = False,
 ) -> dict[str, pd.Series]:
-    """Disaggregate day by day with soft time-window penalties and 3 power levels.
+    """Disaggregate day-by-day with 3 power levels and activation penalty (HiGHS L1-MILP).
+
+    Same constraint structure as approach_gurobi_activation (3 levels, activation penalty,
+    soft time-window, min/max ON). Objective is L1 instead of L2 — avoids quadratic
+    terms and any crash risk. Penalties scale by p_typical (consistent with L1).
 
     Args:
         signal: 1-minute aggregate power series with DatetimeIndex.
         devices: Device profiles for the household.
-        time_limit: Gurobi time limit per daily chunk in seconds.
+        time_limit: HiGHS time limit per daily chunk in seconds.
         baseline_mode: 'peak' or 'duty_avg' for always-on devices.
-        baseline_method: Baseline estimator (see baseline_load module).
-        resample_method: Aggregation method for resampling ('mean','max','min','median').
+        baseline_method: Baseline estimator.
+        resample_method: Aggregation method for resampling.
         granularity_min: Bin size in minutes (default 15).
-        time_window_penalty: Penalty per out-of-window active slot (default 1000.0).
-        power_level_variation: Fractional spread of low/high levels around p_typical (default 0.15).
-        verbose: If True, keep Gurobi console output.
+        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.
+        power_level_variation: Fractional spread of low/high power levels (default ±15%).
+        activation_penalty: Penalty factor (× p_typical) per ON transition.
+        verbose: Show HiGHS console output.
 
     Returns:
-        dict mapping device name -> power series (actual estimated W) aligned to signal.index.
+        dict mapping device name → power series with actual estimated wattage,
+        aligned to signal.index (1-min).
     """
     nan_mask = signal.isna()
 
@@ -92,15 +104,11 @@ def run(
     present_events = [d for d in devices if not d.always_on and d.prior_weight >= 1.0]
 
     baseline_total, _ = estimate_always_on_baseline(
-        signal=signal,
-        devices=present_always_on,
-        method=baseline_method,
-        baseline_mode=baseline_mode,
+        signal=signal, devices=present_always_on,
+        method=baseline_method, baseline_mode=baseline_mode,
     )
     baseline_by_device = split_baseline_by_device(
-        baseline_total=baseline_total,
-        devices=present_always_on,
-        baseline_mode=baseline_mode,
+        baseline_total=baseline_total, devices=present_always_on, baseline_mode=baseline_mode,
     )
     for dev in present_always_on:
         s = baseline_by_device.get(dev.name, pd.Series(0.0, index=signal.index))
@@ -115,11 +123,9 @@ def run(
         np.clip(
             signal.fillna(0.0).to_numpy(dtype=float)
             - baseline_total.fillna(0.0).to_numpy(dtype=float),
-            0.0,
-            None,
+            0.0, None,
         ),
-        index=signal.index,
-        dtype=float,
+        index=signal.index, dtype=float,
     )
     residual_1min[nan_mask] = np.nan
     residual = resample_signal(residual_1min, granularity_min=granularity_min, method=resample_method)
@@ -127,7 +133,6 @@ def run(
     min_on: dict[str, int] = {}
     max_on: dict[str, int] = {}
     allowed_wins: dict[str, list[tuple[int, int]]] = {}
-
     for dev in present_events:
         a_i = _min_on_slots(dev, granularity_min)
         if a_i >= 2:
@@ -139,20 +144,18 @@ def run(
         if wins:
             allowed_wins[dev.name] = wins
 
-    _dp_idx = residual.index.tz_convert(None) if residual.index.tz is not None else residual.index
-    day_periods = _dp_idx.to_period("D")
+    _idx = residual.index.tz_convert(None) if residual.index.tz is not None else residual.index
+    day_periods = _idx.to_period("D")
     unique_days = day_periods.unique().sort_values()
-
     per_device_chunks: dict[str, list[pd.Series]] = {dev.name: [] for dev in present_events}
 
-    for day_idx, day in enumerate(unique_days):
+    for day in unique_days:
         day_mask = day_periods == day
         day_signal = residual[day_mask]
         if day_signal.dropna().empty:
             continue
-        
-        
-        day_result, info = constrained_v5(
+
+        day_result, info = constrained_highs_multistate(
             signal=day_signal,
             devices=present_events,
             time_limit=time_limit,
@@ -162,13 +165,11 @@ def run(
             allowed_on_windows_by_device=allowed_wins or None,
             time_window_penalty=time_window_penalty,
             power_level_variation=power_level_variation,
+            activation_penalty=activation_penalty,
         )
 
-        if verbose:
-            print(
-                f"  {day}: status={info['status']} optimal={info['is_optimal']} "
-                f"obj={info['objective_value']:.1f} t={info['runtime_sec']:.1f}s"
-            )
+        _obj = f"{info['objective_value']:.1f}" if info['objective_value'] is not None else "N/A"
+        print(f"  cvxpy_activation [{day}] status={info['status']} obj={_obj} t={info['runtime_sec']:.1f}s")
 
         for dev in present_events:
             chunk = day_result.get(dev.name, pd.Series(0.0, index=day_signal.index))
@@ -176,7 +177,10 @@ def run(
 
     for dev in present_events:
         chunks = per_device_chunks[dev.name]
-        combined_coarse = pd.concat(chunks).sort_index() if chunks else pd.Series(0.0, index=residual.index, dtype=float)
+        combined_coarse = (
+            pd.concat(chunks).sort_index() if chunks
+            else pd.Series(0.0, index=residual.index, dtype=float)
+        )
         combined_1min = combined_coarse.reindex(signal.index, method="ffill").fillna(0.0)
         combined_1min[nan_mask] = np.nan
         result[dev.name] = combined_1min

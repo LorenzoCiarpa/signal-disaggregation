@@ -107,7 +107,8 @@ def run(
     )
     residual_signal[nan_mask] = np.nan
 
-    day_periods = residual_signal.index.to_period("D")
+    _dp_idx = residual_signal.index.tz_convert(None) if residual_signal.index.tz is not None else residual_signal.index
+    day_periods = _dp_idx.to_period("D")
     unique_days = day_periods.unique().sort_values()
 
     per_device_chunks: dict[str, list[pd.Series]] = {dev.name: [] for dev in present_events}
@@ -118,10 +119,6 @@ def run(
         if day_signal.empty:
             continue
         
-        if idx == 5: 
-            break
-        
-
         day_result, _ = solve_unconstrained_window(
             signal=day_signal,
             devices=present_events,

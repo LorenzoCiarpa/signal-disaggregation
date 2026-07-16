@@ -166,7 +166,8 @@ def run(
             allowed_wins[dev.name] = wins
 
     # --- Daywise solve on resampled residual --------------------------------
-    day_periods = residual.index.to_period("D")
+    _dp_idx = residual.index.tz_convert(None) if residual.index.tz is not None else residual.index
+    day_periods = _dp_idx.to_period("D")
     unique_days = day_periods.unique().sort_values()
 
     per_device_chunks: dict[str, list[pd.Series]] = {dev.name: [] for dev in present_events}
@@ -177,8 +178,6 @@ def run(
         if day_signal.dropna().empty:
             continue
 
-        if day_idx == 5:
-            break
 
         day_result, info = constrained_v3(
             signal=day_signal,

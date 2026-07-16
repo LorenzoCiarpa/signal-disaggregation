@@ -85,7 +85,10 @@ def run(
             break
 
     for i, dev in enumerate(present_events):
-        device_state = _apply_commitment_window(states[:, i], _commitment_length(dev))
+        # Pruning before commitment: remove activations too short to be real
+        device_state = _remove_short_blocks(states[:, i], _min_block_duration(dev))
+        # Extend surviving activations to at least the typical commitment window
+        device_state = _apply_commitment_window(device_state, _commitment_length(dev))
 
         max_duration = _max_block_duration(dev)
         if max_duration is not None:
@@ -167,6 +170,26 @@ def _is_in_window(
     if wraps_next_day or end_min <= start_min:
         return (minute_of_day >= start_min) | (minute_of_day < end_min)
     return (minute_of_day >= start_min) & (minute_of_day < end_min)
+
+
+def _min_block_duration(dev: DeviceProfile) -> int:
+    return max(1, int(round(dev.dur_min_min)))
+
+
+def _remove_short_blocks(arr: np.ndarray, min_duration: int) -> np.ndarray:
+    """Zero out ON-blocks shorter than min_duration timesteps (noise pruning).
+
+    Unlike the commitment window (which extends short pulses), this removes them.
+    Calling this before _apply_commitment_window ensures only plausible activations
+    are extended to their typical duration.
+    """
+    if min_duration <= 1:
+        return arr.copy()
+    out = arr.copy()
+    for start, end in _find_on_blocks(arr):
+        if end - start < min_duration:
+            out[start:end] = 0.0
+    return out
 
 
 def _commitment_length(dev: DeviceProfile) -> int:
