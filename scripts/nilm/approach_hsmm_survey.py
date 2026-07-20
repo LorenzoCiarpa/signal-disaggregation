@@ -1,13 +1,13 @@
 """
 approach_hsmm_survey — Factorial Hidden Semi-Markov Model with survey priors.
 
-Key difference from FHMM (approach_fhmm_1_survey):
+Key difference from FHMM (approach_fhmm_survey):
   FHMM assumes state duration ~ Geometric (memoryless).
   HSMM uses an explicit duration distribution: each state has a P(d | state)
   that the Viterbi algorithm enforces natively — no post-processing needed.
 
 Per-device inference:
-  - Coordinate-ascent like fhmm_1: iterate over devices, subtract others,
+  - Coordinate-ascent like fhmm_survey: iterate over devices, subtract others,
     run single-device HSMM Viterbi on residual, repeat until convergence.
   - 2 states per device: OFF (state 0) and ON (state 1).
 
@@ -272,7 +272,7 @@ def _device_hsmm_params(
 
 
 # ---------------------------------------------------------------------------
-# Power assignment (same strategy as fhmm_1)
+# Power assignment (same strategy as fhmm_survey)
 # ---------------------------------------------------------------------------
 
 

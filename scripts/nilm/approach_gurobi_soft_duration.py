@@ -1,11 +1,25 @@
 """
-Day-wise Gurobi NILM with all devices as variables, including always-on (solve_full).
+Day-wise Gurobi NILM with soft duration limits (solve_full with duration penalties).
 
-Extends approach_gurobi_activation by eliminating the baseline-estimation step:
-always-on devices (fridge, freezer, ...) are modeled as variables with exactly one
-power level active at each timestep (Σ_k z[i,t,k] = 1), instead of being estimated
-upfront and subtracted from the signal.  The solver jointly optimises always-on level
-selection and event-device activation against the raw aggregate signal.
+Same model as approach_gurobi_full — all devices as variables, always-on included —
+but the min-ON and max-consecutive limits are no longer hard constraints.
+
+Rationale: survey duration bounds are approximate, and a hard cap makes the solver
+reject a device whose power matches a plateau exactly but whose plateau runs slightly
+longer than the declared maximum.  A 2h15 plateau with a 2h cap leaves 15 minutes
+unexplained rather than accepting a marginally long cycle.  Here the same block is
+allowed, paying a penalty proportional to the overshoot, so the survey acts as a
+prior instead of a veto.
+
+Two penalties, both in slots and scaled by p_typical² (commensurate with the
+squared reconstruction error, so lambda = 1.0 is the break-even point):
+
+  block — per activation, charged on the deviation from the min/max duration bounds
+  daily — on the deviation of the device's total daily ON time from the survey
+          expectation (frequency_per_week / 7 x dur_typical)
+
+The max-duration bound comes from the survey field ``duration_minutes_max`` when
+present, falling back to ``dur_typical_min x _MAX_ON_FACTOR`` otherwise.
 """
 
 from __future__ import annotations
@@ -44,9 +58,22 @@ def _min_on_slots(dev: DeviceProfile, granularity_min: int) -> int:
 
 
 def _max_on_slots(dev: DeviceProfile, granularity_min: int) -> int | None:
+    """Soft upper bound in slots, preferring the survey-declared maximum."""
+    if dev.duration_minutes_max is not None and dev.duration_minutes_max > 0:
+        return max(1, math.ceil(dev.duration_minutes_max / granularity_min))
     if dev.dur_typical_min is None or dev.dur_typical_min <= 0:
         return None
     return max(1, math.ceil(dev.dur_typical_min * _MAX_ON_FACTOR / granularity_min))
+
+
+def _expected_daily_on_slots(dev: DeviceProfile, granularity_min: int) -> float | None:
+    """Expected ON slots per day from the survey usage frequency and duration."""
+    if dev.frequency_per_week is None or dev.frequency_per_week <= 0:
+        return None
+    if dev.dur_typical_min is None or dev.dur_typical_min <= 0:
+        return None
+    activations_per_day = dev.frequency_per_week / 7.0
+    return activations_per_day * dev.dur_typical_min / granularity_min
 
 
 def _allowed_windows(dev: DeviceProfile) -> list[tuple[int, int]] | None:
@@ -66,13 +93,11 @@ def run(
     window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     power_level_variation: float = 0.15,
     activation_penalty: float = 1.0,
+    duration_penalty_block: float = 0.5,
+    duration_penalty_daily: float = 0.5,
     verbose: bool = False,
 ) -> dict[str, pd.Series]:
-    """Disaggregate day by day, modeling always-on devices as multistate variables.
-
-    Always-on devices are NOT estimated via baseline: they enter the solver directly
-    with a hard 'always active' constraint (exactly one power level per timestep).
-    Event devices keep all v6 features: 3 levels, activation penalty, soft time window.
+    """Disaggregate day by day with duration limits penalised instead of enforced.
 
     Args:
         signal: 1-minute aggregate power series with DatetimeIndex.
@@ -80,12 +105,16 @@ def run(
         time_limit: Gurobi time limit per daily chunk in seconds.
         resample_method: Aggregation method for resampling ('mean','max','min','median').
         granularity_min: Bin size in minutes (default 15).
-        time_window_penalty: Dimensionless factor for out-of-window penalty (× p_typical²).  Graduated by
-            distance from the nearest allowed window.
+        time_window_penalty: Dimensionless factor for out-of-window penalty (x p_typical²).
         window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
         window_penalty_max_factor: Upper bound on the distance-graduated factor.
         power_level_variation: Fractional spread of low/high levels around p_typical.
-        activation_penalty: Dimensionless factor penalizing each ON transition (× p_typical²).
+        activation_penalty: Dimensionless factor penalizing each ON transition (x p_typical²).
+        duration_penalty_block: Cost per slot of deviation from the min/max duration
+            bounds.  Below 1.0 a device may over- or under-run to explain the signal;
+            at or above 1.0 the survey bounds effectively win.
+        duration_penalty_daily: Cost per slot of deviation of the daily ON time from
+            the survey expectation.  Set to 0.0 to disable the daily budget.
         verbose: If True, keep Gurobi console output.
 
     Returns:
@@ -113,6 +142,7 @@ def run(
     min_on: dict[str, int] = {}
     max_on: dict[str, int] = {}
     allowed_wins: dict[str, list[tuple[int, int]]] = {}
+    expected_daily: dict[str, float] = {}
 
     for dev in event_devices:
         a_i = _min_on_slots(dev, granularity_min)
@@ -124,6 +154,9 @@ def run(
         wins = _allowed_windows(dev)
         if wins:
             allowed_wins[dev.name] = wins
+        expected = _expected_daily_on_slots(dev, granularity_min)
+        if expected is not None:
+            expected_daily[dev.name] = expected
 
     _dp_idx = resampled.index.tz_convert(None) if resampled.index.tz is not None else resampled.index
     day_periods = _dp_idx.to_period("D")
@@ -150,6 +183,9 @@ def run(
             window_penalty_max_factor=window_penalty_max_factor,
             power_level_variation=power_level_variation,
             activation_penalty=activation_penalty,
+            duration_penalty_block=duration_penalty_block,
+            duration_penalty_daily=duration_penalty_daily,
+            expected_daily_on_slots_by_device=expected_daily or None,
         )
 
         if verbose:
@@ -173,4 +209,3 @@ def run(
         result[dev.name] = combined_1min
 
     return result
-

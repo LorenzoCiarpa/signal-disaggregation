@@ -1,5 +1,5 @@
 """
-Day-wise Gurobi NILM with soft time-window penalties, 3 power levels, and activation penalty (constrained_v6).
+Day-wise Gurobi NILM with soft time-window penalties, 3 power levels, and activation penalty (solve_activation).
 
 Extends approach_gurobi_multistate by penalizing the number of ON/OFF cycles per day
 via the rising-edge variable u[i,t].  A high activation_penalty discourages the solver
@@ -15,7 +15,11 @@ import pandas as pd
 
 from scripts.nilm.baseline_load import estimate_always_on_baseline, split_baseline_by_device
 from scripts.nilm.devices import DeviceProfile
-from scripts.nilm.gurobi_methods import constrained_v6
+from scripts.nilm.time_windows import (
+    WINDOW_PENALTY_MAX_FACTOR,
+    WINDOW_PENALTY_RAMP_MIN,
+)
+from scripts.nilm.gurobi_methods import solve_activation
 
 GRANULARITY_MIN = 15
 RESAMPLE_METHODS = ("mean", "max", "min", "median")
@@ -59,6 +63,8 @@ def run(
     resample_method: str = "mean",
     granularity_min: int = GRANULARITY_MIN,
     time_window_penalty: float = 1.0,
+    window_penalty_ramp_min: float = WINDOW_PENALTY_RAMP_MIN,
+    window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     power_level_variation: float = 0.15,
     activation_penalty: float = 1.0,
     verbose: bool = False,
@@ -73,7 +79,10 @@ def run(
         baseline_method: Baseline estimator (see baseline_load module).
         resample_method: Aggregation method for resampling ('mean','max','min','median').
         granularity_min: Bin size in minutes (default 15).
-        time_window_penalty: Dimensionless factor for out-of-window penalty (× p_typical²).
+        time_window_penalty: Dimensionless factor for out-of-window penalty (× p_typical²).  Graduated by
+            distance from the nearest allowed window.
+        window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
+        window_penalty_max_factor: Upper bound on the distance-graduated factor.
         power_level_variation: Fractional spread of low/high levels around p_typical.
         activation_penalty: Dimensionless factor penalizing each ON transition (× p_typical²).
         verbose: If True, keep Gurobi console output.
@@ -146,13 +155,13 @@ def run(
 
     per_device_chunks: dict[str, list[pd.Series]] = {dev.name: [] for dev in present_events}
 
-    for day_idx, day in enumerate(unique_days):
+    for day in unique_days:
         day_mask = day_periods == day
         day_signal = residual[day_mask]
         if day_signal.dropna().empty:
             continue
         
-        day_result, info = constrained_v6(
+        day_result, info = solve_activation(
             signal=day_signal,
             devices=present_events,
             time_limit=time_limit,
@@ -161,6 +170,8 @@ def run(
             max_consecutive_on_by_device=max_on or None,
             allowed_on_windows_by_device=allowed_wins or None,
             time_window_penalty=time_window_penalty,
+            window_penalty_ramp_min=window_penalty_ramp_min,
+            window_penalty_max_factor=window_penalty_max_factor,
             power_level_variation=power_level_variation,
             activation_penalty=activation_penalty,
         )

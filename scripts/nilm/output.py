@@ -68,7 +68,7 @@ def save_results(
     imei: str,
     approach_name: str,
     output_dir: str = "analysis",
-    skip_weekly_plots: bool = False,
+    skip_plots: bool = False,
     temporal_plot_granularity: str = "weekly",
 ) -> None:
     """Save disaggregation CSV, temporal plots, and energy report for one (imei, approach) pair.
@@ -79,7 +79,8 @@ def save_results(
         imei: IMEI identifier string.
         approach_name: Name of the disaggregation approach.
         output_dir: Root output directory (default: 'analysis').
-        skip_weekly_plots: If True, skip saving weekly PNG plots (default: False).
+        skip_plots: If True, skip every temporal plot (both weekly and daily).  To keep
+            one kind and drop the other, leave this False and set the granularity.
         temporal_plot_granularity: 'weekly', 'daily', or 'both' for temporal plot output.
     """
     base_dir = os.path.join(output_dir, imei, approach_name)
@@ -92,7 +93,7 @@ def save_results(
         os.makedirs(daily_dir, exist_ok=True)
 
     _save_csv(signal, disaggregation, base_dir)
-    if not skip_weekly_plots:
+    if not skip_plots:
         if temporal_plot_granularity in {"weekly", "both"}:
             _save_weekly_plots(signal, disaggregation, imei, approach_name, weekly_dir)
         if temporal_plot_granularity in {"daily", "both"}:

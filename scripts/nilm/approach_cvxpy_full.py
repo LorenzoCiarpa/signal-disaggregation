@@ -1,13 +1,13 @@
 """
 approach_cvxpy_full — Day-wise NILM with always-on devices as multistate variables
-via HiGHS L1-MILP (mirror of approach_gurobi_full / constrained_v7).
+via HiGHS L1-MILP (mirror of approach_gurobi_full / solve_full).
 
 Always-on devices (fridge, freezer, ...) are modeled as solver variables with
 exactly one power level active at each valid timestep — no baseline subtraction.
 The solver jointly optimises always-on level selection and event-device activation
 against the raw aggregate signal.
 
-Constraint structure identical to constrained_v7 (gurobi_full):
+Constraint structure identical to solve_full (gurobi_full):
   - Always-on: z_ao[j,t,k] with Σ_k z_ao[j,t,k] = 1, no transition constraints
   - Event devices: 3 levels, transitions, min/max ON, soft time windows, activation penalty
   - L1 objective (sum of absolute errors) instead of Gurobi's L2
@@ -24,6 +24,10 @@ import numpy as np
 import pandas as pd
 
 from scripts.nilm.devices import DeviceProfile
+from scripts.nilm.time_windows import (
+    WINDOW_PENALTY_MAX_FACTOR,
+    WINDOW_PENALTY_RAMP_MIN,
+)
 from scripts.nilm.highs_methods import constrained_highs_full
 
 GRANULARITY_MIN = 15
@@ -62,13 +66,15 @@ def run(
     resample_method: str = "mean",
     granularity_min: int = GRANULARITY_MIN,
     time_window_penalty: float = 1.0,
+    window_penalty_ramp_min: float = WINDOW_PENALTY_RAMP_MIN,
+    window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     activation_penalty: float = 1.0,
     power_level_variation: float = 0.15,
     verbose: bool = False,
 ) -> dict[str, pd.Series]:
     """Disaggregate day-by-day with always-on devices as multistate variables (HiGHS L1-MILP).
 
-    Identical constraint structure to gurobi_full (constrained_v7): always-on devices
+    Identical constraint structure to gurobi_full (solve_full): always-on devices
     are variables in the solver (not baseline-subtracted), each forced to have exactly
     one power level active per valid timestep.  Objective is L1 instead of L2.
 
@@ -78,7 +84,10 @@ def run(
         time_limit: HiGHS time limit per daily chunk in seconds.
         resample_method: Aggregation method for resampling ('mean','max','min','median').
         granularity_min: Bin size in minutes (default 15).
-        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.
+        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.  Graduated by
+            distance from the nearest allowed window.
+        window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
+        window_penalty_max_factor: Upper bound on the distance-graduated factor.
         activation_penalty: Penalty factor (× p_typical) per ON transition (event devices).
         power_level_variation: Fractional spread of low/high levels around p_typical (default ±15%).
         verbose: Show HiGHS console output.
@@ -139,6 +148,8 @@ def run(
             max_consecutive_on_by_device=max_on or None,
             allowed_on_windows_by_device=allowed_wins or None,
             time_window_penalty=time_window_penalty,
+            window_penalty_ramp_min=window_penalty_ramp_min,
+            window_penalty_max_factor=window_penalty_max_factor,
             power_level_variation=power_level_variation,
             activation_penalty=activation_penalty,
         )

@@ -1,8 +1,8 @@
 """
 US-002: Knowledge base dispositivi e inventario per IMEI.
 
-Provides DeviceProfile dataclass, DEVICE_KNOWLEDGE_BASE, parse_frequency(),
-get_device_profiles(), and get_device_profiles_v2() to load per-IMEI device inventories.
+Provides the DeviceProfile dataclass, DEVICE_KNOWLEDGE_BASE, and
+get_device_profiles() to load per-IMEI survey device inventories.
 """
 
 import json
@@ -177,29 +177,6 @@ DEVICE_KNOWLEDGE_BASE: dict[str, dict] = {
     },
 }
 
-_FREQUENCY_MAP: dict[str, float] = {
-    "quasi ogni giorno": 6.0,
-    "più di 7 volte": 8.0,
-    "1-2 volte": 1.5,
-    "pranzo": 7.0,
-    "notte": 7.0,
-}
-
-
-def parse_frequency(s: Optional[str]) -> float:
-    """Map an Italian frequency string to a weekly frequency float.
-
-    Args:
-        s: Italian frequency string from device survey, or None/empty.
-
-    Returns:
-        Weekly frequency as float. Defaults to 3.0 for unknown/empty values.
-    """
-    if not s:
-        return 3.0
-    normalized = s.strip().lower()
-    return _FREQUENCY_MAP.get(normalized, 3.0)
-
 
 def _safe_float(value: object) -> Optional[float]:
     if value is None:
@@ -232,12 +209,13 @@ def _representative_from_bounds(
 
 
 def get_device_profiles(
-    imei: str, device_dir: str = "device_usage_by_imei"
+    imei: str, device_dir: str = "device_usage_by_imei_v2"
 ) -> list[DeviceProfile]:
-    """Load device profiles for a given IMEI from the inventory JSON.
+    """Load survey-aware device profiles for a given IMEI from the inventory JSON.
 
     Devices marked present=true get prior_weight=1.0; absent devices get 0.05.
-    Frequency comes from parse_frequency() applied to the survey field.
+    Survey bounds (usage frequency, duration, start window, daily hours, active
+    months) override the DEVICE_KNOWLEDGE_BASE defaults where present.
 
     Args:
         imei: The IMEI string identifying the household.
@@ -247,58 +225,6 @@ def get_device_profiles(
         List of DeviceProfile instances for the supported device set.
     """
     path = os.path.join(device_dir, f"{imei}.json")
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    devices_data = data.get("devices", {})
-    profiles: list[DeviceProfile] = []
-
-    legacy_fridge_info = devices_data.get("Frigorifero", {})
-
-    for device_name, kb_entry in DEVICE_KNOWLEDGE_BASE.items():
-        device_info = devices_data.get(device_name, {})
-        if device_name == "Frigorifero principale":
-            present = bool(device_info.get("present", False)) or bool(
-                legacy_fridge_info.get("present", False)
-            )
-            frequency_str = device_info.get("frequency", "") or legacy_fridge_info.get(
-                "frequency", ""
-            )
-        else:
-            present = bool(device_info.get("present", False))
-            frequency_str = device_info.get("frequency", "") if device_info else ""
-
-        prior_weight = 1.0 if present else 0.05
-        frequency_per_week = parse_frequency(frequency_str)
-
-        profile = DeviceProfile(
-            name=device_name,
-            p_min_w=kb_entry["p_min_w"],
-            p_typical_w=kb_entry["p_typical_w"],
-            p_max_w=kb_entry["p_max_w"],
-            dur_min_min=kb_entry["dur_min_min"],
-            dur_typical_min=kb_entry["dur_typical_min"],
-            duty_cycle=kb_entry["duty_cycle"],
-            frequency_per_week=frequency_per_week,
-            prior_weight=prior_weight,
-            always_on=kb_entry.get("always_on", False),
-        )
-        profiles.append(profile)
-
-    return profiles
-
-
-def get_device_profiles_v2(
-    imei: str, device_dir: str = "device_usage_by_imei_v2"
-) -> list[DeviceProfile]:
-    """Load survey-aware device profiles from the V2 inventory JSON.
-
-    If the V2 file is missing, falls back to the legacy loader so callers can
-    use the same API safely on older workspaces.
-    """
-    path = os.path.join(device_dir, f"{imei}.json")
-    if not os.path.exists(path):
-        return get_device_profiles(imei)
 
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)

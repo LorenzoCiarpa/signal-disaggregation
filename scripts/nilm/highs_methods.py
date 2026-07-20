@@ -1,7 +1,7 @@
 """
 highs_methods.py — L1-MILP NILM disaggregation via HiGHS (free, no license).
 
-Drop-in replacement for gurobi_methods (constrained_v4/v6) and cvxpy_methods.
+Drop-in replacement for gurobi_methods (solve_activation / solve_full).
 Uses HiGHS directly via `highspy` — no CVXPY overhead, no C-level malloc crash.
 
 Problem class: Mixed-Integer Linear Programming (MILP)
@@ -40,6 +40,12 @@ except ImportError:
     _HAS_HIGHS = False
 
 from scripts.nilm.devices import DeviceProfile
+from scripts.nilm.time_windows import (
+    WINDOW_PENALTY_MAX_FACTOR,
+    WINDOW_PENALTY_RAMP_MIN,
+    out_of_season_mask,
+    window_penalty_factors,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +55,6 @@ _INSTALL_MSG = "highspy is not installed. Run: pip install highspy"
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _build_allowed_window_mask(
-    index: pd.DatetimeIndex,
-    allowed_windows: list[tuple[int, int]],
-) -> np.ndarray:
-    minute_of_day = index.hour.to_numpy(int) * 60 + index.minute.to_numpy(int)
-    mask = np.zeros(len(index), dtype=bool)
-    for start_min, end_min in allowed_windows:
-        s, e = int(start_min), int(end_min)
-        if e <= s:
-            mask |= (minute_of_day >= s) | (minute_of_day < e)
-        else:
-            mask |= (minute_of_day >= s) & (minute_of_day < e)
-    return mask
 
 
 def _empty_info(n: int, T: int) -> dict:
@@ -100,18 +91,19 @@ def constrained_highs(
     max_consecutive_on_by_device: dict[str, int] | None = None,
     allowed_on_windows_by_device: dict[str, list[tuple[int, int]]] | None = None,
     time_window_penalty: float = 1.0,
+    window_penalty_ramp_min: float = WINDOW_PENALTY_RAMP_MIN,
+    window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     activation_penalty: float = 0.0,
 ) -> tuple[dict[str, pd.Series], dict]:
     """L1-MILP NILM disaggregation via HiGHS.
 
-    Replaces constrained_scip (v4) and constrained_scip_activation (v6) with
-    a formulation that avoids CVXPY's memory-intensive symbolic expansion.
+    Uses a formulation that avoids CVXPY's memory-intensive symbolic expansion.
 
     Objective: minimize Σ_t |Σ_i p_i x_i(t) - y(t)|
                + Σ_i time_window_penalty * p_i * (out-of-window activations)
                + Σ_i activation_penalty * p_i * (ON transitions)
 
-    All constraints (transitions, min/max ON) are identical to Gurobi v4/v6.
+    All constraints (transitions, min/max ON) are identical to solve_activation.
 
     Args:
         signal: Aggregate power series for a single time window.
@@ -121,7 +113,10 @@ def constrained_highs(
         min_on_slots_by_device: Hard minimum consecutive ON timesteps.
         max_consecutive_on_by_device: Hard maximum consecutive ON timesteps.
         allowed_on_windows_by_device: Soft time-window penalty windows.
-        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.
+        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot,
+            graduated by distance from the nearest allowed window.
+        window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
+        window_penalty_max_factor: Upper bound on the distance-graduated factor.
         activation_penalty: Penalty factor (× p_typical) per ON transition.
             Set to 0 (default) for v4 behaviour; > 0 for v6 behaviour.
 
@@ -166,15 +161,19 @@ def constrained_highs(
     # ------------------------------------------------------------------
     # Pre-compute out-of-window masks (per device, list of valid out-t)
     # ------------------------------------------------------------------
-    out_masks: dict[int, list[int]] = {}
+    out_factors: dict[int, np.ndarray] = {}
     if allowed_on_windows_by_device:
         for i, dev in enumerate(devices):
             wins = allowed_on_windows_by_device.get(dev.name)
             if wins:
-                in_win = _build_allowed_window_mask(signal.index, wins)
-                out_t = [t for t in valid_list.tolist() if not in_win[t]]
-                if out_t:
-                    out_masks[i] = out_t
+                factors = window_penalty_factors(
+                    signal.index,
+                    wins,
+                    ramp_min=window_penalty_ramp_min,
+                    max_factor=window_penalty_max_factor,
+                )
+                if factors.any():
+                    out_factors[i] = factors
 
     # ------------------------------------------------------------------
     # Build variable bounds and costs
@@ -191,10 +190,11 @@ def constrained_highs(
         cost[EN(t)] = 1.0
 
     # Time-window penalty (linear in x)
-    for i, out_t in out_masks.items():
+    for i, factors in out_factors.items():
         scale = time_window_penalty * float(p[i])
-        for t in out_t:
-            cost[X(i, t)] += scale
+        for t in valid_list.tolist():
+            if factors[t] > 0.0:
+                cost[X(i, t)] += scale * float(factors[t])
 
     # Activation penalty (linear in u)
     if activation_penalty > 0.0:
@@ -332,6 +332,8 @@ def constrained_highs_multistate(
     max_consecutive_on_by_device: dict[str, int] | None = None,
     allowed_on_windows_by_device: dict[str, list[tuple[int, int]]] | None = None,
     time_window_penalty: float = 1.0,
+    window_penalty_ramp_min: float = WINDOW_PENALTY_RAMP_MIN,
+    window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     power_level_variation: float = 0.15,
     activation_penalty: float = 0.0,
 ) -> tuple[dict[str, pd.Series], dict]:
@@ -364,7 +366,10 @@ def constrained_highs_multistate(
         min_on_slots_by_device: Hard minimum consecutive ON timesteps.
         max_consecutive_on_by_device: Hard maximum consecutive ON timesteps.
         allowed_on_windows_by_device: Soft time-window penalty windows.
-        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.
+        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot,
+            graduated by distance from the nearest allowed window.
+        window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
+        window_penalty_max_factor: Upper bound on the distance-graduated factor.
         power_level_variation: Fractional spread around p_typical (default 0.15 = ±15%).
         activation_penalty: Penalty factor (× p_typical) per ON transition.
 
@@ -425,15 +430,19 @@ def constrained_highs_multistate(
     # ------------------------------------------------------------------
     # Out-of-window masks
     # ------------------------------------------------------------------
-    out_masks: dict[int, list[int]] = {}
+    out_factors: dict[int, np.ndarray] = {}
     if allowed_on_windows_by_device:
         for i, dev in enumerate(devices):
             wins = allowed_on_windows_by_device.get(dev.name)
             if wins:
-                in_win = _build_allowed_window_mask(signal.index, wins)
-                out_t = [t for t in valid_list.tolist() if not in_win[t]]
-                if out_t:
-                    out_masks[i] = out_t
+                factors = window_penalty_factors(
+                    signal.index,
+                    wins,
+                    ramp_min=window_penalty_ramp_min,
+                    max_factor=window_penalty_max_factor,
+                )
+                if factors.any():
+                    out_factors[i] = factors
 
     # ------------------------------------------------------------------
     # Variable bounds and costs
@@ -450,10 +459,11 @@ def constrained_highs_multistate(
         cost[EN(t)] = 1.0
 
     # Time-window penalty on x (out-of-window, scaled by p_typical)
-    for i, out_t in out_masks.items():
+    for i, factors in out_factors.items():
         scale = time_window_penalty * float(devices[i].p_typical_w)
-        for t in out_t:
-            cost[X(i, t)] += scale
+        for t in valid_list.tolist():
+            if factors[t] > 0.0:
+                cost[X(i, t)] += scale * float(factors[t])
 
     # Activation penalty on u (scaled by p_typical)
     if activation_penalty > 0.0:
@@ -596,10 +606,20 @@ def constrained_highs_full(
     max_consecutive_on_by_device: dict[str, int] | None = None,
     allowed_on_windows_by_device: dict[str, list[tuple[int, int]]] | None = None,
     time_window_penalty: float = 1.0,
+    window_penalty_ramp_min: float = WINDOW_PENALTY_RAMP_MIN,
+    window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     power_level_variation: float = 0.15,
     activation_penalty: float = 0.0,
+    duration_penalty_block: float = 0.0,
+    duration_penalty_daily: float = 0.0,
+    expected_daily_on_slots_by_device: dict[str, float] | None = None,
+    over_activation_penalty_by_device: dict[str, float] | None = None,
+    remaining_activations_by_device: dict[str, float] | None = None,
+    window_vagueness_weight: float = 0.0,
+    season_penalty: float = 0.0,
+    active_months_by_device: dict[str, list[int]] | None = None,
 ) -> tuple[dict[str, pd.Series], dict]:
-    """L1-MILP NILM with always-on devices modeled as multistate variables (mirror of constrained_v7).
+    """L1-MILP NILM with always-on devices modeled as multistate variables (mirror of solve_full).
 
     Always-on devices (dev.always_on=True) are NOT estimated via baseline subtraction.
     Instead they enter the solver directly with exactly one power level active at every
@@ -632,9 +652,27 @@ def constrained_highs_full(
         min_on_slots_by_device: Hard minimum consecutive ON timesteps (event devices).
         max_consecutive_on_by_device: Hard maximum consecutive ON timesteps (event devices).
         allowed_on_windows_by_device: Soft time-window penalty windows (event devices).
-        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.
+        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot,
+            graduated by distance from the nearest allowed window.
+        window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
+        window_penalty_max_factor: Upper bound on the distance-graduated factor.
         power_level_variation: Fractional spread around p_typical (default 0.15 = ±15%).
         activation_penalty: Penalty factor (× p_typical) per ON transition (event devices).
+        duration_penalty_block: If > 0, min-ON and max-consecutive limits become soft;
+            a block pays this factor (× p_typical) per slot of deviation from them.
+        duration_penalty_daily: If > 0, penalise the deviation of total daily ON time
+            from expected_daily_on_slots_by_device (× p_typical per slot).
+        expected_daily_on_slots_by_device: Expected ON slots per day, per device.
+        over_activation_penalty_by_device: Extra cost (× p_typical) per activation past
+            the remaining weekly quota.  Per device because the break-even scales with
+            the device's typical ON length in slots.  The caller carries the counter
+            across days, since each day is solved as its own model.
+        remaining_activations_by_device: Activations still available this week, per device.
+        window_vagueness_weight: Weight on the vagueness floor of the time-window
+            penalty, so a device that named a narrow window beats one that named none.
+        season_penalty: Cost (× p_typical) per ON slot in a month the device was not
+            declared active.
+        active_months_by_device: Months (1-12) each device was declared active in.
 
     Returns:
         (disaggregation, info) — disaggregation maps every device name (always-on and
@@ -692,20 +730,58 @@ def constrained_highs_full(
     def EN(t: int) -> int: return en_base + valid_pos[t]
 
     n_bin = ep_base
-    n_vars = en_base + n_valid
+
+    # Duration-slack columns (continuous, only allocated when the penalties are on,
+    # so the default path builds exactly the same model as before).
+    soft_duration = duration_penalty_block > 0.0
+    use_daily = bool(duration_penalty_daily > 0.0 and expected_daily_on_slots_by_device)
+    n_sdur = n_ev * T if soft_duration else 0
+    n_daily = n_ev if use_daily else 0
+
+    use_quota = bool(over_activation_penalty_by_device and remaining_activations_by_device)
+    n_quota = n_ev if use_quota else 0
+
+    sshort_base = en_base + n_valid
+    sover_base = sshort_base + n_sdur
+    dover_base = sover_base + n_sdur
+    dunder_base = dover_base + n_daily
+    eact_base = dunder_base + n_daily
+    n_vars = eact_base + n_quota
+
+    def SSHORT(i: int, t: int) -> int: return sshort_base + i * T + t
+    def SOVER(i: int, t: int) -> int: return sover_base + i * T + t
+    def DOVER(i: int) -> int: return dover_base + i
+    def DUNDER(i: int) -> int: return dunder_base + i
+    def EACT(i: int) -> int: return eact_base + i
 
     # ------------------------------------------------------------------
     # Out-of-window masks (event devices only)
     # ------------------------------------------------------------------
-    out_masks: dict[int, list[int]] = {}
-    if allowed_on_windows_by_device:
+    out_factors: dict[int, np.ndarray] = {}
+    if allowed_on_windows_by_device or window_vagueness_weight > 0.0:
+        windows_by_device = allowed_on_windows_by_device or {}
         for i, dev in enumerate(ev_devices):
-            wins = allowed_on_windows_by_device.get(dev.name)
-            if wins:
-                in_win = _build_allowed_window_mask(signal.index, wins)
-                out_t = [t for t in valid_list.tolist() if not in_win[t]]
-                if out_t:
-                    out_masks[i] = out_t
+            wins = windows_by_device.get(dev.name)
+            # With a vagueness floor every device is charged, including the ones that
+            # declared nothing — that is precisely what the floor is for.
+            if not wins and window_vagueness_weight <= 0.0:
+                continue
+            factors = window_penalty_factors(
+                signal.index,
+                wins,
+                ramp_min=window_penalty_ramp_min,
+                max_factor=window_penalty_max_factor,
+                vagueness_weight=window_vagueness_weight,
+            )
+            if factors.any():
+                out_factors[i] = factors
+
+    season_masks: dict[int, np.ndarray] = {}
+    if season_penalty > 0.0 and active_months_by_device:
+        for i, dev in enumerate(ev_devices):
+            mask = out_of_season_mask(signal.index, active_months_by_device.get(dev.name))
+            if mask.any():
+                season_masks[i] = mask
 
     # ------------------------------------------------------------------
     # Variable bounds and costs
@@ -719,10 +795,36 @@ def constrained_highs_full(
         cost[EP(t)] = 1.0
         cost[EN(t)] = 1.0
 
-    for i, out_t in out_masks.items():
+    for i, factors in out_factors.items():
         scale = time_window_penalty * float(ev_devices[i].p_typical_w)
-        for t in out_t:
-            cost[XEV(i, t)] += scale
+        for t in valid_list.tolist():
+            if factors[t] > 0.0:
+                cost[XEV(i, t)] += scale * float(factors[t])
+
+    if soft_duration:
+        for i, dev in enumerate(ev_devices):
+            scale = duration_penalty_block * float(dev.p_typical_w)
+            for t in range(T):
+                cost[SSHORT(i, t)] = scale
+                cost[SOVER(i, t)] = scale
+
+    if use_daily:
+        for i, dev in enumerate(ev_devices):
+            scale = duration_penalty_daily * float(dev.p_typical_w)
+            cost[DOVER(i)] = scale
+            cost[DUNDER(i)] = scale
+
+    for i, mask in season_masks.items():
+        scale = season_penalty * float(ev_devices[i].p_typical_w)
+        for t in valid_list.tolist():
+            if mask[t]:
+                cost[XEV(i, t)] += scale
+
+    if use_quota:
+        for i, dev in enumerate(ev_devices):
+            lam = over_activation_penalty_by_device.get(dev.name)
+            if lam and lam > 0:
+                cost[EACT(i)] = float(lam) * float(dev.p_typical_w)
 
     if activation_penalty > 0.0:
         for i, dev in enumerate(ev_devices):
@@ -818,7 +920,12 @@ def constrained_highs_full(
             a = int(a)
             for t in range(T - a + 1):
                 x_idx = [XEV(i, tt) for tt in range(t, t + a)]
-                _row(h, 0.0, _INF, x_idx + [UEV(i, t)], [1.0] * a + [-float(a)])
+                if soft_duration:
+                    _row(h, 0.0, _INF,
+                         x_idx + [SSHORT(i, t), UEV(i, t)],
+                         [1.0] * a + [1.0, -float(a)])
+                else:
+                    _row(h, 0.0, _INF, x_idx + [UEV(i, t)], [1.0] * a + [-float(a)])
 
     # 8. Max consecutive ON: Σ_{τ=t}^{t+b} x_ev[i,τ] ≤ b
     if max_consecutive_on_by_device:
@@ -829,7 +936,32 @@ def constrained_highs_full(
             b = int(b)
             for t in range(T - b):
                 x_idx = [XEV(i, tt) for tt in range(t, t + b + 1)]
-                _row(h, -_INF, float(b), x_idx, [1.0] * (b + 1))
+                if soft_duration:
+                    _row(h, -_INF, float(b),
+                         x_idx + [SOVER(i, t)], [1.0] * (b + 1) + [-1.0])
+                else:
+                    _row(h, -_INF, float(b), x_idx, [1.0] * (b + 1))
+
+    # 10. Weekly activation quota: Σ_t u_ev[i,t] - excess ≤ remaining.
+    # The first `remaining` activations cost only activation_penalty; each one past
+    # it also pays over_activation_penalty via the excess column.
+    if use_quota:
+        for i, dev in enumerate(ev_devices):
+            remaining = remaining_activations_by_device.get(dev.name)
+            lam = over_activation_penalty_by_device.get(dev.name)
+            if remaining is None or not lam or lam <= 0:
+                continue
+            idx = [UEV(i, t) for t in range(T)] + [EACT(i)]
+            _row(h, -_INF, max(0.0, float(remaining)), idx, [1.0] * T + [-1.0])
+
+    # 9. Daily ON-time budget: Σ_t x_ev[i,t] - over + under = expected
+    if use_daily:
+        for i, dev in enumerate(ev_devices):
+            expected = expected_daily_on_slots_by_device.get(dev.name)
+            if expected is None or expected < 0:
+                continue
+            idx = [XEV(i, t) for t in range(T)] + [DOVER(i), DUNDER(i)]
+            _row(h, float(expected), float(expected), idx, [1.0] * T + [-1.0, 1.0])
 
     # ------------------------------------------------------------------
     # Solve

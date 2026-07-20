@@ -38,7 +38,7 @@ Stessa notazione del documento Gurobi, più:
 **Solver**: HiGHS (via `highspy`)
 **Tipo**: MILP
 **Granularità**: 15 min
-**Equivalente Gurobi**: `gurobi_soft` (stessa struttura di vincoli, diverso obiettivo)
+**Equivalente Gurobi**: nessuno — è la variante binaria a 1 livello, senza penalità di attivazione (l'omologo `gurobi_soft` è stato rimosso).
 
 ### Formulazione
 
@@ -66,7 +66,7 @@ La penalità finestra è scalata per `p_i` (non `p_i²` come in Gurobi) per mant
 
 Poiché `ep[t], en[t] ≥ 0`, minimizzare `ep[t] + en[t]` equivale a minimizzare `|Σ_i p_i x[i,t] − y[t]|`.
 
-**Vincoli di transizione, durata min/max**: identici a `constrained_v4` (vedi documento Gurobi).
+**Vincoli di transizione, durata min/max**: identici a `solve_activation` (vedi documento Gurobi), ma su ON/OFF binario a 1 livello.
 
 ### Perché HiGHS e non SCIP?
 
@@ -129,7 +129,9 @@ min  Σ_t  ( ep[t] + en[t] )
 
 Le penalità scalano per `p_i` (non `p_i²`), coerente con la scala L1.
 
-**Vincoli di transizione, durata min/max**: identici a `constrained_v6` (operano su `x[i,t]`).
+**Vincoli di transizione, durata min/max**: identici a `solve_activation` (operano su `x[i,t]`).
+
+**Penalità di finestra**: graduata per distanza, `λ_w · p_i · f_i(t)` — vedi [approaches_gurobi.md](approaches_gurobi.md#fattore-di-distanza-dalla-finestra). Attenzione alla taratura: in L1 con `λ_w = 1` la penalità eguaglia il costo di non spiegare quel watt, quindi la finestra diventa di fatto hard; usare `λ_w ≈ 0.2–0.4`.
 
 ---
 
@@ -139,7 +141,7 @@ Le penalità scalano per `p_i` (non `p_i²`), coerente con la scala L1.
 **Solver**: HiGHS (via `highspy`)
 **Tipo**: MILP
 **Granularità**: 15 min
-**Equivalente Gurobi**: `gurobi_full` (constrained_v7) — stessa struttura, obiettivo L1
+**Equivalente Gurobi**: `gurobi_full` (`solve_full`) — stessa struttura, obiettivo L1
 
 Estende `cvxpy_activation` modellando anche i device always-on come variabili. Nessuna sottrazione di baseline.
 
@@ -190,8 +192,14 @@ La versione precedente di `cvxpy_full` sottraeva la baseline degli always-on e p
 
 | Approccio | Solver | Tipo | Obiettivo | Livelli | Act. Penalty | Always-on | Mirror Gurobi |
 |-----------|--------|------|-----------|---------|--------------|-----------|---------------|
-| `cvxpy` | HiGHS | MILP | L1 | 1 (binary) | no | baseline | `gurobi_soft` (struttura, non obj) |
+| `cvxpy` | HiGHS | MILP | L1 | 1 (binary) | no | baseline | nessuno (`gurobi_soft` rimosso) |
 | `cvxpy_activation` | HiGHS | MILP | L1 | 3 | sì (λ·p) | baseline | `gurobi_activation` (stessa struttura, L1 vs L2) |
 | `cvxpy_full` | HiGHS | MILP | L1 | 3 | sì (λ·p) | variabili | `gurobi_full` (stessa struttura, L1 vs L2) |
+| `cvxpy_soft_duration` | HiGHS | MILP | L1 | 3 | sì (λ·p) | variabili | `gurobi_soft_duration` (durata soft, L1 vs L2) |
+| `cvxpy_weekly_quota` | HiGHS | MILP | L1 | 3 | sì + quota settimanale | variabili | `gurobi_weekly_quota` (L1 vs L2) |
+
+`cvxpy_weekly_quota` aggiunge la quota settimanale di accensioni descritta in [approaches_gurobi.md](approaches_gurobi.md#gurobi_weekly_quota), con il sovrapprezzo scalato per `p_i` invece che `p_i²`.
+
+`cvxpy_soft_duration` rende soft anche i limiti di durata: stessa formulazione con slack descritta in [approaches_gurobi.md](approaches_gurobi.md#gurobi_soft_duration), con le penalità scalate per `p_i` invece che `p_i²` (scala L1).
 
 Le varianti `*_max`, `*_median`, `*_30min` usano la stessa formulazione della variante base con `resample_method` o `granularity_min` diversi.

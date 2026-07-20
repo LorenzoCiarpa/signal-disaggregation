@@ -1,6 +1,6 @@
-"""fhmm_1_survey - FHMM-1 variant with questionnaire-aware temporal priors.
+"""fhmm_survey - FHMM with questionnaire-aware temporal priors.
 
-Extends fhmm_1 with lightweight heuristics from the V2 questionnaire:
+Greedy per-device FHMM, with lightweight heuristics from the V2 questionnaire:
 1. Present always-on devices (main fridge, secondary fridge, freezer) remain on.
 2. Preferred start windows and active months bias the activation threshold.
 3. Survey duration guides the commitment window and optional max block length.

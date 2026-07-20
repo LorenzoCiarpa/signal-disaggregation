@@ -19,6 +19,10 @@ import pandas as pd
 
 from scripts.nilm.baseline_load import estimate_always_on_baseline, split_baseline_by_device
 from scripts.nilm.devices import DeviceProfile
+from scripts.nilm.time_windows import (
+    WINDOW_PENALTY_MAX_FACTOR,
+    WINDOW_PENALTY_RAMP_MIN,
+)
 from scripts.nilm.highs_methods import constrained_highs
 
 GRANULARITY_MIN = 15
@@ -63,6 +67,8 @@ def run(
     resample_method: str = "mean",
     granularity_min: int = GRANULARITY_MIN,
     time_window_penalty: float = 1.0,
+    window_penalty_ramp_min: float = WINDOW_PENALTY_RAMP_MIN,
+    window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     verbose: bool = False,
 ) -> dict[str, pd.Series]:
     """Disaggregate day by day with CVXPY + SCIP (free solver).
@@ -79,7 +85,10 @@ def run(
         baseline_method: Baseline estimator (see baseline_load module).
         resample_method: Aggregation method ('mean','max','min','median').
         granularity_min: Bin size in minutes (default 15).
-        time_window_penalty: Penalty factor per out-of-window active slot.
+        time_window_penalty: Penalty factor per out-of-window active slot.  Graduated by
+            distance from the nearest allowed window.
+        window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
+        window_penalty_max_factor: Upper bound on the distance-graduated factor.
         verbose: If True, show SCIP console output per day.
 
     Returns:
@@ -165,6 +174,8 @@ def run(
             max_consecutive_on_by_device=max_on or None,
             allowed_on_windows_by_device=allowed_wins or None,
             time_window_penalty=time_window_penalty,
+            window_penalty_ramp_min=window_penalty_ramp_min,
+            window_penalty_max_factor=window_penalty_max_factor,
         )
 
         if verbose:

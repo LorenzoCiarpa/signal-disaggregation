@@ -2,7 +2,7 @@
 approach_cvxpy_activation — Day-wise NILM with 3 power levels and activation
 penalty via HiGHS L1-MILP (free, no license, no crash risk).
 
-Constraint structure identical to approach_gurobi_activation.py (constrained_v6):
+Constraint structure identical to approach_gurobi_activation.py (solve_activation):
   - 3 power levels per device (low/mid/high = p_typical ± power_level_variation)
   - Soft time-window penalty
   - Per-activation penalty
@@ -25,6 +25,10 @@ import pandas as pd
 
 from scripts.nilm.baseline_load import estimate_always_on_baseline, split_baseline_by_device
 from scripts.nilm.devices import DeviceProfile
+from scripts.nilm.time_windows import (
+    WINDOW_PENALTY_MAX_FACTOR,
+    WINDOW_PENALTY_RAMP_MIN,
+)
 from scripts.nilm.highs_methods import constrained_highs_multistate
 
 GRANULARITY_MIN = 15
@@ -65,6 +69,8 @@ def run(
     resample_method: str = "mean",
     granularity_min: int = GRANULARITY_MIN,
     time_window_penalty: float = 1.0,
+    window_penalty_ramp_min: float = WINDOW_PENALTY_RAMP_MIN,
+    window_penalty_max_factor: float = WINDOW_PENALTY_MAX_FACTOR,
     power_level_variation: float = 0.15,
     activation_penalty: float = 1.0,
     verbose: bool = False,
@@ -83,7 +89,10 @@ def run(
         baseline_method: Baseline estimator.
         resample_method: Aggregation method for resampling.
         granularity_min: Bin size in minutes (default 15).
-        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.
+        time_window_penalty: Penalty factor (× p_typical) per out-of-window slot.  Graduated by
+            distance from the nearest allowed window.
+        window_penalty_ramp_min: Minutes away from the window adding one unit of penalty.
+        window_penalty_max_factor: Upper bound on the distance-graduated factor.
         power_level_variation: Fractional spread of low/high power levels (default ±15%).
         activation_penalty: Penalty factor (× p_typical) per ON transition.
         verbose: Show HiGHS console output.
@@ -164,6 +173,8 @@ def run(
             max_consecutive_on_by_device=max_on or None,
             allowed_on_windows_by_device=allowed_wins or None,
             time_window_penalty=time_window_penalty,
+            window_penalty_ramp_min=window_penalty_ramp_min,
+            window_penalty_max_factor=window_penalty_max_factor,
             power_level_variation=power_level_variation,
             activation_penalty=activation_penalty,
         )
