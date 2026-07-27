@@ -1,0 +1,271 @@
+\chapter{Anatomia della funzione obiettivo}
+\label{ch:obiettivo}
+
+Questo capitolo esamina uno per uno i termini della funzione obiettivo: che cosa misurano, perché
+sono costruiti in quel modo, che cosa significa concretamente il valore numerico del loro
+coefficiente e come cambia il comportamento del modello al variare di quel valore.
+
+\section{Il principio unificante: omogeneità dimensionale}
+\label{sec:omogeneita}
+
+La funzione obiettivo somma quantità di natura molto diversa: un errore di ricostruzione, un
+conteggio di accensioni, uno scarto di durata, un'eccedenza settimanale. Perché la somma abbia
+senso, tutti i termini devono essere \textbf{omogenei}, cioè avere la stessa dimensione fisica.
+
+Il primo termine, l'errore di ricostruzione, si misura in watt. Ne segue che ogni altro termine
+deve essere anch'esso in watt. Questo determina la struttura di tutti i coefficienti:
+
+\begin{equation}
+  \underbrace{\lambda}_{\text{adimensionale}}
+  \;\times\;
+  \underbrace{p_i}_{[\mathrm{W}]}
+  \;\times\;
+  \underbrace{(\text{variabile})}_{\text{adimensionale}}
+  \;=\;
+  [\mathrm{W}] .
+\end{equation}
+
+\begin{notebox}{Perché ogni penalità è moltiplicata per $p_i$}
+Non si tratta di una convenzione arbitraria ma di una necessità dimensionale. Se le penalità
+fossero costanti assolute, il loro peso relativo dipenderebbe dalla potenza dell'apparecchio: la
+stessa penalità sarebbe trascurabile per una lavatrice da $2000\unit{W}$ e proibitiva per un
+televisore da $100\unit{W}$. Scalando per $p_i$ ogni apparecchio riceve una penalità
+\textbf{proporzionata alla propria scala}, e un unico coefficiente $\lambda$ ha lo stesso
+significato per tutti.
+\end{notebox}
+
+Da questa costruzione discende l'interpretazione uniforme dei coefficienti, valida per tutti i
+termini tranne quello di quota settimanale (§\ref{sec:t-quota}):
+
+\begin{center}
+\begin{minipage}{0.9\textwidth}
+\centering\itshape
+$\lambda = 1$ è il punto di pareggio: violare la dichiarazione una volta costa esattamente quanto
+lasciare $p_i$ watt non spiegati per la durata di uno slot.
+\end{minipage}
+\end{center}
+
+Sotto 1 l'evidenza del segnale prevale sulla dichiarazione dell'utente; sopra 1 prevale la
+dichiarazione.
+
+\section{Termine 1 --- Errore di ricostruzione}
+
+\begin{equation}
+  \sum_{t \in \Vset} \bigl( \ep_t + \en_t \bigr)
+\end{equation}
+
+\paragraph{Che cosa misura.} La distanza complessiva fra il consumo ricostruito dal modello e
+quello effettivamente misurato, sommata su tutti gli slot validi della giornata. Come mostrato nel
+capitolo~\ref{ch:perche-l1}, per costruzione $\ep_t + \en_t = |\hat{y}_t - y_t|$, quindi il termine
+vale l'errore assoluto totale, in watt.
+
+\paragraph{Ruolo nel modello.} È l'unico termine che spinge il modello a \emph{usare} gli
+apparecchi: tutti gli altri sono penalità che spingono a non usarli. L'equilibrio fra questo
+termine e gli altri determina la soluzione.
+
+\paragraph{Coefficiente.} È fissato a 1 e non è configurabile: costituisce il \textbf{riferimento}
+rispetto al quale tutti gli altri coefficienti sono espressi. Cambiarlo equivarrebbe a riscalare
+tutti gli altri in senso inverso.
+
+\paragraph{Asimmetria fra sovrastima e sottostima.} Le due variabili hanno lo stesso costo
+unitario, quindi il modello è indifferente fra sovrastimare e sottostimare di una stessa quantità.
+Questa è una scelta implicita che vale la pena rendere esplicita: se si volesse penalizzare di più
+la sovrastima --- attribuire consumo che non esiste --- basterebbe assegnare a $\ep_t$ un
+coefficiente maggiore di quello di $\en_t$.
+
+\section{Termine 2 --- Fascia oraria}
+\label{sec:t-fascia}
+
+\begin{equation}
+  \sum_{i} \sum_{t \in \Vset} \lambda_w \, p_i \, f_i(t) \, x_{i,t}
+\end{equation}
+
+\paragraph{Che cosa misura.} Il costo di attribuire consumo a un apparecchio in un momento della
+giornata incompatibile con quanto dichiarato nel questionario. È il termine più articolato, perché
+il fattore $f_i(t)$ non è binario ma cresce con la distanza dalla fascia dichiarata; la sua
+costruzione completa è nel capitolo~\ref{ch:fattore}.
+
+\paragraph{Perché è applicato a $x_{i,t}$ e non a $u_{i,t}$.} La penalità grava su \emph{ogni
+slot} in cui l'apparecchio risulta acceso, non solo sull'istante di accensione. Un ciclo di due ore
+interamente fuori orario paga quindi otto volte, un ciclo che sconfina di un solo slot paga una
+volta. La penalità è cioè proporzionale a \emph{quanto} consumo viene attribuito fuori fascia, non
+al semplice fatto che sia avvenuto.
+
+\paragraph{Effetto del coefficiente.}
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+$\lambda_w = 0$ & la fascia oraria dichiarata viene ignorata del tutto \\
+$\lambda_w \approx 0.2$--$0.4$ & la fascia orienta la scelta senza impedirla: intervallo consigliato \\
+$\lambda_w = 1$ & un'attivazione fuori fascia costa quanto lasciare quel consumo inspiegato \\
+$\lambda_w > 1$ & la fascia diventa di fatto un vincolo rigido \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{warnbox}{Attenzione al valore predefinito}
+Il valore predefinito $\lambda_w = 1$ colloca il termine \emph{esattamente} sul punto di pareggio:
+accendere l'apparecchio fuori fascia costa quanto non spiegare affatto quel consumo. Il risultato
+è che il modello, indifferente fra le due opzioni, tende a non attivare mai l'apparecchio fuori
+orario --- la fascia si comporta come un vincolo rigido pur essendo formalmente flessibile.
+
+Nelle verifiche sperimentali questo effetto è risultato marcato: con $\lambda_w = 1$ un
+apparecchio non veniva attivato in nessun punto della giornata, dentro o fuori fascia. Per
+osservare un comportamento realmente graduato è necessario scendere a $0.2$--$0.4$.
+\end{warnbox}
+
+\section{Termine 3 --- Numero di accensioni}
+
+\begin{equation}
+  \sum_{i} \sum_{t \in \Vset} \lambda_a \, p_i \, u_{i,t}
+\end{equation}
+
+\paragraph{Che cosa misura.} Il costo di ogni singolo avvio. Poiché $u_{i,t}$ vale 1 solo sui
+fronti di salita, la somma $\sum_t u_{i,t}$ è esattamente il \textbf{numero di cicli} attribuiti
+all'apparecchio nella giornata.
+
+\paragraph{A che serve.} Senza questo termine il modello tende a produrre soluzioni frammentate:
+accende e spegne ripetutamente gli apparecchi per inseguire ogni oscillazione del segnale,
+generando decine di micro-cicli privi di senso fisico. Il termine introduce un costo fisso per
+avvio, rendendo conveniente un unico ciclo lungo rispetto a molti brevi a parità di energia
+attribuita.
+
+\paragraph{Interpretazione del coefficiente.} Con $\lambda_a = 1$ un'accensione in più costa quanto
+tenere l'apparecchio acceso per uno slot a fronte di segnale nullo. In altri termini: il modello
+accetta un ciclo aggiuntivo solo se questo gli permette di spiegare almeno $p_i$ watt per uno slot
+che altrimenti resterebbero inspiegati.
+
+\paragraph{Comportamento al variare.} Valori crescenti producono soluzioni progressivamente più
+``pulite'', con cicli meno numerosi e più lunghi. Valori troppo alti portano il modello a
+rinunciare del tutto ad apparecchi che compaiono raramente ma realmente.
+
+\section{Termine 4 --- Durata dei cicli}
+
+\begin{equation}
+  \sum_{i} \sum_{t} \lambda_d \, p_i \bigl( s^{-}_{i,t} + s^{+}_{i,t} \bigr)
+\end{equation}
+
+\paragraph{Che cosa misura.} Lo scostamento della durata di ogni ciclo dai limiti dichiarati. Le
+due variabili sono asimmetriche nel significato ma simmetriche nel costo: $s^{-}$ misura di quanti
+slot un ciclo è più \emph{corto} del minimo dichiarato, $s^{+}$ di quanti è più \emph{lungo} del
+massimo.
+
+\paragraph{Il punto non ovvio.} Come dimostrato nel paragrafo~\ref{sec:m4}, il costo complessivo di
+un ciclo di lunghezza $L > b_i$ risulta
+\begin{equation}
+  \lambda_d \, p_i \, (L - b_i),
+\end{equation}
+cioè \textbf{esattamente proporzionale allo sforamento}. Questa proporzionalità non è imposta: è
+una conseguenza del fatto che le finestre di vincolo violate sono tante quanti gli slot di
+eccedenza. È il motivo per cui questa formulazione è preferibile a costruzioni più elaborate con
+variabili di lunghezza del ciclo, che richiederebbero un numero di binarie proporzionale a
+$T \times d_{\max}$.
+
+\paragraph{Interpretazione del coefficiente.} Con $\lambda_d = 1$ ogni slot di sforamento costa
+quanto uno slot di consumo inspiegato. Il modello estende un ciclo oltre il limite dichiarato solo
+se ciò gli consente di spiegare almeno altrettanto segnale. Il valore predefinito $0.5$ rende lo
+sforamento relativamente conveniente, coerentemente con la constatazione che le durate dichiarate
+sono poco affidabili.
+
+\section{Termine 5 --- Monte ore giornaliero}
+
+\begin{equation}
+  \sum_{i} \lambda_D \, p_i \bigl( d^{+}_i + d^{-}_i \bigr)
+\end{equation}
+
+\paragraph{Che cosa misura.} Lo scarto fra le ore complessive di accensione attribuite
+all'apparecchio nella giornata e quelle attese in base a frequenza e durata dichiarate.
+
+\paragraph{Differenza rispetto al termine precedente.} È un vincolo \textbf{globale} sulla
+giornata: non guarda la forma dei cicli ma solo il loro totale. Un ciclo da quattro ore e quattro
+cicli da un'ora sono per questo termine equivalenti. I due termini sono quindi complementari ---
+uno controlla la forma, l'altro il volume --- e possono essere usati insieme.
+
+\paragraph{Perché è disattivato per impostazione predefinita.} Sulle abitazioni del campione la sua
+attivazione peggiorava leggermente l'errore di ricostruzione. L'attesa calcolata dal questionario
+non corrispondeva all'uso reale osservato, e forzare il modello ad avvicinarvisi degradava la
+qualità. Il valore predefinito è quindi $\lambda_D = 0$, con il termine disponibile per
+riattivazione se il questionario dovesse risultare più affidabile.
+
+\section{Termine 6 --- Quota settimanale}
+\label{sec:t-quota}
+
+\begin{equation}
+  \sum_{i} \lambda_{q,i} \, p_i \, e_i
+\end{equation}
+
+\paragraph{Che cosa misura.} Il numero di accensioni attribuite nel giorno corrente che eccedono la
+quota settimanale ancora disponibile.
+
+\paragraph{L'eccezione alla regola del punto di pareggio.} Questo è \textbf{l'unico termine il cui
+punto di pareggio non è 1}, e la ragione merita attenzione perché è la stessa che ha reso
+necessaria una calibrazione per apparecchio.
+
+Gli altri termini penalizzano quantità commisurate a \emph{uno slot}: uno slot fuori fascia, uno
+slot di sforamento. Questo penalizza invece un'\emph{intera attivazione}, che dura tipicamente
+$s_i$ slot. Il beneficio che il modello ottiene attribuendo un ciclo completo è quindi dell'ordine
+di $s_i \cdot p_i$, e per contrastarlo il sovrapprezzo deve superare quel valore:
+\begin{equation}
+  \lambda_{q,i} = \code{over\_activation\_factor} \times s_i .
+\end{equation}
+
+\begin{notebox}{Verifica sperimentale del punto di pareggio}
+Su un caso di prova con attivazioni da 4 slot, il comportamento del modello cambia
+\textbf{esattamente} a $\lambda_q = 4$: sotto quel valore le accensioni eccedenti vengono comunque
+attribuite, sopra vengono rifiutate. Il risultato coincide con la previsione analitica e conferma
+la necessità di scalare il coefficiente per la durata tipica.
+
+Un coefficiente scalare unico sarebbe mal calibrato: nel campione le durate tipiche vanno da 1
+slot (microonde) a 8 slot (televisori), un fattore otto di differenza nel punto di pareggio.
+\end{notebox}
+
+\paragraph{Struttura del costo.} Il termine è nullo finché le accensioni restano entro la quota, e
+cresce linearmente oltre. Non è quindi una penalità sull'uso dell'apparecchio in sé, ma
+esclusivamente sul suo \emph{uso eccessivo} rispetto a quanto dichiarato.
+
+\section{Termine 7 --- Stagionalità}
+
+\begin{equation}
+  \sum_{i} \sum_{\substack{t \in \Vset \\ \text{mese}(t) \notin \mathcal{M}_i}}
+  \lambda_s \, p_i \, x_{i,t}
+\end{equation}
+
+\paragraph{Che cosa misura.} Il costo di attribuire consumo a un apparecchio in un mese in cui
+l'utente ha dichiarato di non usarlo.
+
+\paragraph{Perché il coefficiente è alto.} Il valore predefinito $\lambda_s = 8$ è nettamente
+superiore al punto di pareggio, e questo è deliberato. La dichiarazione stagionale è
+qualitativamente più affidabile delle altre: ricordare che il climatizzatore si usa solo d'estate
+è molto più facile che ricordare a che ora si avvia di solito la lavatrice. Un valore alto rende
+l'apparecchio praticamente assente fuori stagione.
+
+\paragraph{Perché resta comunque flessibile.} Nonostante il valore elevato il termine è una
+penalità e non un'esclusione: se il segnale contenesse un'evidenza schiacciante --- un plateau
+prolungato che nessun altro apparecchio può spiegare --- il modello potrebbe ancora attribuirlo.
+Un'esclusione rigida ($x_{i,t} = 0$ fuori stagione) sarebbe stata più veloce da risolvere, ma
+avrebbe reso irrecuperabile un errore di compilazione del questionario.
+
+\paragraph{Impatto osservato.} Su un'abitazione del campione il climatizzatore, dichiarato attivo
+da giugno a settembre, riceveva $8.1\unit{kWh}$ nei blocchi di novembre, dicembre e gennaio.
+Con il termine attivo scende a zero.
+
+\section{Termine 8 --- Specificità della fascia oraria}
+
+Questo termine non è additivo ma \textbf{moltiplicativo}: agisce come pavimento sul fattore
+$f_i(t)$ del termine~2 e non introduce una sommatoria separata. La sua costruzione è nel
+capitolo~\ref{ch:fattore}, dove viene trattata insieme al resto del fattore temporale.
+
+\begin{notebox}{Perché una penalità e non un premio}
+L'obiettivo di questo termine è favorire un apparecchio che ha dichiarato una fascia stretta
+rispetto a uno che non ha dichiarato nulla. Si potrebbe ottenerlo in due modi: premiando il primo
+o penalizzando il secondo. La scelta è caduta sulla penalità per una ragione precisa.
+
+Un premio sarebbe un \textbf{coefficiente negativo} nella funzione obiettivo. Il solver, che
+minimizza, avrebbe allora convenienza ad accendere apparecchi \emph{solo per incassare il premio},
+anche in totale assenza di segnale da spiegare. Il fenomeno è controllabile mantenendo il premio
+inferiore al costo di ricostruzione che ne deriverebbe, ma resta una fragilità strutturale del
+modello.
+
+La penalità sulla genericità produce \textbf{lo stesso ordinamento relativo} fra i due apparecchi
+mantenendo tutti i coefficienti non negativi, e quindi nessun incentivo ad attivazioni spurie.
+\end{notebox}

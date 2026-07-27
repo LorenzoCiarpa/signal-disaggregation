@@ -1,0 +1,113 @@
+\chapter{Limiti noti}
+\label{ch:limiti}
+
+Questo capitolo raccoglie i limiti strutturali dei modelli, documentati esplicitamente perché
+incidono sull'interpretazione dei risultati.
+
+\section{Apparecchi sempre accesi sovradimensionati}
+
+Come anticipato nel paragrafo~\ref{sec:m3}, il vincolo di attività permanente
+\eqref{eq:always-on} è un'\textbf{uguaglianza}: gli apparecchi sempre accesi devono assorbire in
+ogni istante almeno $\sum_j p^{\text{ao}}_j (1-\delta)$ watt.
+
+Se il questionario dichiara apparecchi la cui somma supera il consumo medio effettivo
+dell'abitazione, il modello sovrastima per costruzione, indipendentemente dalla qualità della
+soluzione trovata.
+
+\begin{center}
+\begin{tabular}{@{}l r r l@{}}
+\toprule
+\textbf{Abitazione} & \textbf{Segnale medio} & \textbf{Always-on dichiarati} & \textbf{Esito} \\
+\midrule
+A & $238.6\unit{W}$ & $125.0\unit{W}$ & regolare \\
+B & $186.5\unit{W}$ & $125.0\unit{W}$ & regolare \\
+C & $\mathbf{159.0}\unit{\mathbf{W}}$ & $\mathbf{325.0}\unit{\mathbf{W}}$ & \textbf{sovrastima strutturale} \\
+D & $757.8\unit{W}$ & $125.0\unit{W}$ & regolare \\
+E & $199.1\unit{W}$ & $125.0\unit{W}$ & regolare \\
+F & $715.1\unit{W}$ & $225.0\unit{W}$ & regolare \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Nell'abitazione C il questionario dichiara due frigoriferi e un congelatore, per un totale di
+$325\unit{W}$ tipici, a fronte di un consumo medio misurato di $159\unit{W}$. L'errore
+sull'energia totale risulta del $119\%$ e il residuo medio è negativo (circa
+$-165\unit{W}$): il modello attribuisce più energia di quanta ne sia stata misurata.
+
+\paragraph{Motivazione.} Non è un problema del solver né dei coefficienti. O il questionario dichiara
+apparecchi che di fatto non consumano, o i valori di potenza tipica della base di conoscenza sono
+troppo alti per quegli specifici modelli.
+
+\paragraph{Possibile correzione.} Rilassare il vincolo~\eqref{eq:always-on} da uguaglianza a
+disuguaglianza ($\le 1$), permettendo lo stato spento quando il segnale non sostiene il consumo
+dichiarato, eventualmente con una penalità per lo spegnimento. Finché il vincolo resta
+un'uguaglianza quell'abitazione non è utilizzabile.
+
+\section{Allocazione greedy della quota settimanale}
+
+Poiché i giorni sono risolti separatamente, la quota settimanale viene consumata in ordine
+cronologico senza previsione: i primi giorni della settimana la spendono liberamente e i
+successivi ne subiscono le conseguenze.
+
+Una distribuzione ottima richiederebbe di risolvere i sette giorni congiuntamente, moltiplicando
+per sette la dimensione del problema. Il compromesso adottato evita comunque l'esito implausibile
+in cui un apparecchio dichiarato bisettimanale risulta acceso tutti i giorni.
+
+\section{Quota settimanale su blocchi di cinque giorni}
+
+I blocchi di analisi durano cinque giorni e vengono elaborati indipendentemente, quindi il
+contatore settimanale riparte a ogni blocco. Un blocco di cinque giorni riceve così l'intera quota
+settimanale del questionario, il che è \textbf{leggermente permissivo}: un apparecchio dichiarato
+due volte a settimana ne riceve due in cinque giorni anziché circa $1.4$ in proporzione.
+
+Inoltre l'azzeramento interno al blocco, previsto al cambio di settimana ISO, si verifica solo nei
+blocchi che contengono un lunedì.
+
+\section{Assenza di verità di riferimento}
+
+Il limite più importante non riguarda la formulazione ma la validazione. Non esistendo etichette
+temporali, \textbf{non è possibile misurare l'accuratezza dell'attribuzione}. Le metriche
+disponibili sono indirette:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Metrica} & \textbf{Che cosa misura, e che cosa non misura} \\
+\midrule
+Errore di ricostruzione
+& Quanto la somma degli apparecchi stimati aderisce al segnale. \textbf{Non} dice se
+  l'attribuzione fra apparecchi è corretta: una soluzione che assegna tutto all'apparecchio
+  sbagliato può avere errore nullo. \\
+\addlinespace
+Errore sull'energia totale
+& Scostamento fra energia attribuita e misurata sul periodo. Stesso limite. \\
+\addlinespace
+Coerenza temporale
+& Percentuale di cicli con durata plausibile. Indiretta ma indipendente dal segnale. \\
+\addlinespace
+Plausibilità rispetto al questionario
+& Il criterio più informativo di fatto disponibile: verificare che gli apparecchi ricevano
+  consumo negli orari e nei mesi dichiarati. È esattamente ciò che i prior descritti in questo
+  documento impongono, quindi non costituisce una validazione indipendente. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{warnbox}{Implicazione per il committente}
+I risultati vanno letti come una \textbf{ripartizione plausibile} dei consumi, coerente con quanto
+dichiarato dall'utente e con il segnale misurato, non come una misura verificata del consumo per
+apparecchio. Una validazione vera richiederebbe un sottoinsieme di abitazioni strumentate con
+misuratori a livello di presa, da usare come riferimento.
+\end{warnbox}
+
+\section{Tempo di calcolo e ottimalità}
+
+Il budget di 60 secondi per giorno non garantisce di raggiungere l'ottimo. Sui modelli $L_1$
+risolti con HiGHS il limite viene generalmente rispettato con ampio margine, ma la difficoltà
+cresce rapidamente con il numero di apparecchi e con la finezza della discretizzazione.
+
+Quando il budget si esaurisce il solver restituisce la migliore soluzione trovata fino a quel
+momento, che può essere lontana dall'ottimo. In quel caso il confronto fra modelli diversi perde
+significato, perché si finirebbe per confrontare la qualità della ricerca anziché la formulazione.
+Le varianti a 30 minuti dimezzano il numero di variabili e sono la prima leva da usare quando il
+tempo di calcolo diventa critico.

@@ -1,0 +1,728 @@
+\documentclass[aspectratio=169]{beamer}
+
+% ------------------------------------------------------------------ encoding --
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{lmodern}
+
+% ------------------------------------------------------------------- matema --
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+
+% ------------------------------------------------------------------ grafica --
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric}
+
+% ------------------------------------------------------- palette aziendale --
+\definecolor{CorpBlue}{HTML}{0F4C81}
+\definecolor{CorpTeal}{HTML}{1C7C7D}
+\definecolor{CorpOrange}{HTML}{D17A22}
+\definecolor{CorpRed}{HTML}{B23A48}
+\definecolor{CorpGreen}{HTML}{2E7D4F}
+\definecolor{CorpLight}{HTML}{F3F6FA}
+\definecolor{CorpGray}{HTML}{5B6573}
+
+\usetheme{Madrid}
+\setbeamercolor{structure}{fg=CorpBlue}
+\setbeamercolor{palette primary}{bg=CorpBlue,fg=white}
+\setbeamercolor{palette secondary}{bg=CorpTeal,fg=white}
+\setbeamercolor{palette tertiary}{bg=CorpGray,fg=white}
+\setbeamercolor{frametitle}{bg=CorpLight,fg=CorpBlue}
+\setbeamercolor{block title}{bg=CorpBlue,fg=white}
+\setbeamercolor{block body}{bg=CorpLight,fg=black}
+\setbeamercolor{block title alerted}{bg=CorpOrange,fg=white}
+\setbeamercolor{block body alerted}{bg=CorpLight,fg=black}
+\setbeamercolor{block title example}{bg=CorpTeal,fg=white}
+\setbeamercolor{block body example}{bg=CorpLight,fg=black}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[circle]
+\setbeamerfont{frametitle}{series=\bfseries}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\unit}[1]{\,\mathrm{#1}}
+\newcommand{\ep}{\varepsilon^{+}}
+\newcommand{\en}{\varepsilon^{-}}
+
+\title[Disaggregazione NILM]{Disaggregazione dei consumi elettrici (NILM)}
+\subtitle{Dal dato grezzo alla ripartizione per elettrodomestico}
+\author{}
+\date{}
+
+\begin{document}
+
+% ============================================================ TITOLO
+\begin{frame}[plain]
+  \titlepage
+  \begin{center}
+    \small\color{CorpGray}
+    Stima non supervisionata del consumo per apparecchio a partire dal solo segnale aggregato
+  \end{center}
+\end{frame}
+
+% ============================================================ AGENDA
+\begin{frame}{Indice della presentazione}
+  \setbeamertemplate{enumerate items}[circle]
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \textbf{\color{CorpBlue}Dati e preparazione}
+    \begin{enumerate}
+      \item Il problema e il ruolo del questionario
+      \item I dati grezzi in ingresso
+      \item Pulizia: rimozione dei dati non validi
+      \item Pulizia: smussamento del rumore
+      \item Selezione dei minuti validi
+      \item Granularit\`a e ricampionamento
+    \end{enumerate}
+    \column{0.5\textwidth}
+    \textbf{\color{CorpBlue}Modello e risultati}
+    \begin{enumerate}\setcounter{enumi}{6}
+      \item Il modello: variabili e loss $L_1$
+      \item Il modello finale
+      \item Risultati: dove funziona
+      \item Risultati: dove fallisce
+      \item Origine degli errori: dati e questionario
+      \item Conclusioni
+    \end{enumerate}
+  \end{columns}
+\end{frame}
+
+% ============================================================ IL PROBLEMA
+\begin{frame}{Il problema: NILM}
+  \begin{block}{Obiettivo}
+    Dato il solo consumo \textbf{aggregato} dell'abitazione, misurato da un unico dispositivo IoT,
+    stimare \textbf{quali elettrodomestici sono accesi} in ogni istante e quanta energia consumano.
+  \end{block}
+
+  \vspace{0.4em}
+  Il modello di misura \`e additivo:
+  \[
+    y(t) \;=\; \sum_{i=1}^{N} P_i \, x_i(t) \;+\; \eta(t)
+  \]
+  \small
+  $y(t)$ = potenza aggregata letta dal contatore \quad
+  $P_i$ = potenza dell'apparecchio $i$ \quad
+  $x_i(t)\in\{0,1\}$ = acceso/spento \quad $\eta$ = rumore.
+
+  \vspace{0.6em}
+  \begin{alertblock}{Problema mal posto}
+    Molte combinazioni diverse di apparecchi producono la stessa somma. Un plateau da
+    $1500\unit{W}$ pu\`o essere una lavastoviglie, un climatizzatore o due carichi minori:
+    dal solo segnale sono equivalenti. Inoltre \textbf{non esistono etichette}: $\Rightarrow$ problema \emph{non supervisionato}.
+  \end{alertblock}
+\end{frame}
+
+% ============================================================ QUESTIONARIO
+\begin{frame}{Il questionario}
+  L'informazione mancante non viene dal segnale ma dal \textbf{questionario} compilato dall'utente.
+  Per ogni elettrodomestico dichiara:
+  \begin{columns}[T]
+    \column{0.52\textwidth}
+    \begin{itemize}
+      \item se \`e presente in casa;
+      \item quante volte a settimana viene usato;
+      \item quanto dura tipicamente un ciclo (min/max);
+    \end{itemize}
+    \column{0.44\textwidth}
+    \begin{itemize}
+      \item in quale fascia oraria viene avviato;
+      \item quante ore al giorno resta acceso;
+      \item in quali mesi dell'anno viene usato.
+    \end{itemize}
+  \end{columns}
+
+  \vspace{0.6em}
+  \begin{exampleblock}{Principio guida: il questionario \`e un \emph{prior}, non un \emph{veto}}
+    Ogni dichiarazione dell'utente diventa un \textbf{costo da pagare} per violarla, mai un divieto
+    assoluto. Il questionario \`e approssimativo (compilato a memoria): il segnale pu\`o smentirlo
+    quando l'evidenza \`e sufficientemente forte. Un vincolo rigido renderebbe un errore di
+    compilazione irrecuperabile.
+  \end{exampleblock}
+\end{frame}
+
+% ============================================================ PIPELINE OVERVIEW
+\begin{frame}{La pipeline in un colpo d'occhio}
+  \centering
+  \begin{tikzpicture}[
+      node distance=0.55cm and 0.5cm,
+      box/.style={rectangle, rounded corners, draw=CorpBlue, fill=CorpLight,
+                  text width=2.5cm, align=center, minimum height=1.5cm, font=\scriptsize},
+      arr/.style={-{Stealth[length=2.5mm]}, CorpGray, thick}
+    ]
+    \node[box] (raw)   {\textbf{Dati grezzi}\\ JSON per IMEI\\ 1 punto/min};
+    \node[box, right=of raw]  (clean) {\textbf{Pulizia}\\ rimozione non validi\\ + smussamento};
+    \node[box, right=of clean] (res)  {\textbf{Ricampiona\-mento}\\ slot da 15 min};
+    \node[box, right=of res]  (opt)   {\textbf{Ottimizza\-zione}\\ MILP giorno per giorno};
+    \node[box, right=of opt]  (out)   {\textbf{Output}\\ consumo per\\ apparecchio};
+    \draw[arr] (raw)   -- (clean);
+    \draw[arr] (clean) -- (res);
+    \draw[arr] (res)   -- (opt);
+    \draw[arr] (opt)   -- (out);
+    \node[below=0.15cm of clean, font=\tiny\itshape, text=CorpGray, text width=2.6cm, align=center]
+      {passi 1--3};
+    \node[below=0.15cm of opt, font=\tiny\itshape, text=CorpTeal, text width=2.6cm, align=center]
+      {questionario\\ come prior};
+  \end{tikzpicture}
+
+  \vspace{0.8em}
+  \begin{block}{Le fasi}
+    \small
+    \textbf{Dati} $\rightarrow$ \textbf{Pulizia} (record invalidi rimossi, rumore smussato)
+    $\rightarrow$ \textbf{Selezione} dei soli minuti validi $\rightarrow$ \textbf{Granularit\`a}
+    (15 min) $\rightarrow$ \textbf{Modello} di ottimizzazione con i prior del questionario
+    $\rightarrow$ \textbf{Ripartizione} dei consumi.
+  \end{block}
+\end{frame}
+
+% ============================================================ DATI GREZZI
+\begin{frame}{1 -- I dati grezzi in ingresso}
+  Un file JSON per dispositivo (IMEI), un record ogni $\sim$60 secondi.
+  \vspace{0.3em}
+  \begin{table}\small
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabularx}{\textwidth}{l X}
+      \toprule
+      \textbf{Campo} & \textbf{Significato} \\
+      \midrule
+      \code{\_id}          & istante di misura (epoch Unix, secondi) \\
+      \code{epoch\_valid}  & flag di qualit\`a: se \code{false} il record va scartato \\
+      \code{w\_medio}      & \textbf{potenza media} nell'intervallo (W) --- metrica principale \\
+      \code{w\_massimo / w\_minimo} & picco e minimo nell'intervallo \\
+      \code{granularity}   & durata dell'intervallo in secondi (60) \\
+      \bottomrule
+    \end{tabularx}
+  \end{table}
+
+  \vspace{0.3em}
+    \textbf{Copertura dati:} 2025-11-13 $\rightarrow$ 2026-02-05.\\
+    Solo \textbf{6 abitazioni} hanno dati sufficienti ($>50$k record).
+\end{frame}
+
+% ============================================================ PULIZIA 1 RIMOZIONE
+\begin{frame}{2 -- Pulizia: rimozione dei dati non validi}
+  Prima di qualunque elaborazione, ogni record viene filtrato. Un campione \`e valido solo se:
+  \vspace{0.4em}
+  \begin{itemize}
+    \item \code{epoch\_valid} $\neq$ \code{false} --- il dispositivo ha marcato il dato come attendibile;
+    \item \code{w\_medio} \`e presente (non nullo);
+    \item \code{w\_medio} $\le 10\,000\unit{W}$ --- soglia anti-\emph{spike}: valori oltre i 10\,kW
+          in un'abitazione sono errori di misura, non consumi reali.(se non diversamente specificato).
+  \end{itemize}
+
+  \vspace{0.6em}
+  \begin{block}{Effetto}
+    \small
+    I record che non superano i controlli vengono \textbf{scartati}. Il segnale viene poi riportato
+    su una griglia regolare a \textbf{1 minuto}: dove manca un campione valido resta un \textbf{buco}
+    (NaN), che non viene inventato ma tracciato esplicitamente.
+  \end{block}
+
+  \vspace{0.3em}
+  \small\color{CorpGray}
+  Gli \emph{spike} isolati distorcerebbero in modo sproporzionato la stima delle potenze e la
+  taratura dei livelli: rimuoverli a monte \`e la prima difesa contro attribuzioni implausibili.
+\end{frame}
+
+% ============================================================ PULIZIA 2 SMUSSAMENTO
+\begin{frame}{3 -- Pulizia: smussamento del rumore}
+  Il segnale grezzo oscilla: elettrodomestici a impulsi (forni, resistenze) alternano rapidamente
+  ON/OFF, generando plateau \emph{frastagliati} che confondono il modello. Due passaggi in sequenza:
+  \vspace{0.3em}
+  \begin{columns}[T]
+    \column{0.45\textwidth}
+    \begin{block}{a) Inviluppo dei plateau alti}
+      \small
+      Le finestre ad alto carico e forte oscillazione (soglia $800\unit{W}$, escursione
+      $>700\unit{W}$, ciclo di lavoro pulsato) vengono riconosciute e \textbf{appiattite} a un
+      livello robusto vicino al massimo. Un forno che ``oscilla'' fra 0 e 2\,kW diventa
+      un plateau stabile.
+    \end{block}
+    \column{0.45\textwidth}
+    \begin{block}{b) Filtro a mediana}
+      \small
+      Un filtro mediano (finestra dispari di pochi minuti) rimuove le oscillazioni locali residue
+      \textbf{preservando i fronti}: a differenza di una media mobile non ``sbava'' le transizioni
+      ON$\to$OFF, che sono l'informazione pi\`u preziosa per la disaggregazione.
+    \end{block}
+  \end{columns}
+
+  \vspace{0.4em}
+  \begin{exampleblock}{Perch\'e conta}
+    \small
+    Il modello ragiona per \textbf{blocchi di potenza costante}. Un plateau pulito e stabile \`e
+    attribuibile a un apparecchio; un plateau frastagliato genera decine di false accensioni e
+    spegnimenti.
+  \end{exampleblock}
+\end{frame}
+
+% ============================================================ SELEZIONE MINUTI VALIDI
+\begin{frame}{4 -- Selezione dei minuti validi}
+  Dopo pulizia e ricampionamento a 1 minuto, il segnale contiene ancora dei \textbf{buchi} (NaN)
+  dove non c'erano campioni validi.
+  \vspace{0.5em}
+  \begin{block}{Regola: solo i minuti realmente osservati entrano nel modello}
+    Sia $\mathcal{V}$ l'insieme degli slot con segnale valido (non NaN).
+    \[
+      x_{i,t} = 0,\quad \ep_t = \en_t = 0 \qquad \forall\, t \notin \mathcal{V}
+    \]
+    Tutte le variabili sono forzate a zero sugli slot non validi.
+  \end{block}
+
+  \vspace{0.4em}
+  \textbf{Perch\'e:}
+  \begin{itemize}
+    \item i buchi \textbf{non generano attivazioni fittizie}: il modello non ``inventa'' consumi
+          dove non ha misurato nulla;
+    \item l'errore di ricostruzione viene calcolato \textbf{solo} sui minuti osservati, quindi non
+          \`e falsato dai periodi senza dati.
+  \end{itemize}
+\end{frame}
+
+% ============================================================ GRANULARITA
+\begin{frame}{5 -- Granularit\`a e ricampionamento}
+  Il segnale a 1 minuto viene aggregato in \textbf{slot da 15 minuti} (96 slot al giorno),
+  usando la media come funzione di aggregazione.
+
+  \vspace{0.5em}
+  \begin{columns}[T]
+    \column{0.45\textwidth}
+    \begin{block}{Perch\'e non lavorare a 1 minuto}
+      \small
+      La granularit\`a \`e il principale fattore di \textbf{costo computazionale}: il numero di
+      variabili binarie cresce linearmente con il numero di slot $T$, e il tempo di risoluzione del
+      MILP cresce molto pi\`u rapidamente.
+    \end{block}
+    \column{0.45\textwidth}
+    \begin{block}{Il compromesso}
+      \small
+      \begin{tabular}{@{}l c c@{}}
+        \toprule
+        & 15 min & 30 min \\
+        \midrule
+        slot/giorno & 96 & 48 \\
+        eventi risolti & $\ge 15$ min & $\ge 30$ min \\
+        costo & base & dimezzato \\
+        \bottomrule
+      \end{tabular}
+    \end{block}
+  \end{columns}
+
+  \vspace{0.5em}
+  \begin{alertblock}{Scelta di progetto}
+    \small
+    A 15 minuti si perde la capacit\`a di distinguere eventi pi\`u brevi (es. un ciclo di microonde
+    da pochi minuti), ma si mantiene il problema risolvibile in tempi accettabili. \`E il punto di
+    equilibrio da adottare di default. (Esperimenti effettuati con granularità di 30m per rientrare in 60s time limit.)
+  \end{alertblock}
+\end{frame}
+
+% ============================================================ SELEZIONE PERIODO (opzionale ma utile)
+\begin{frame}{Esperimenti svolti su quali giorni}
+  Non abbiamo elaborato l'intero storico ma un campione di \textbf{15 giorni per abitazione}
+  (3 blocchi da 5 giorni consecutivi), scelti con criteri precisi:
+  \vspace{0.3em}
+  \begin{table}\small
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{l X}
+      \toprule
+      \textbf{Criterio} & \textbf{Motivazione} \\
+      \midrule
+      Blocchi identici per tutte le case & le differenze fra case riflettono la casa, non il periodo \\
+      Estrazione casuale ma riproducibile & seme fisso: rieseguire d\`a gli stessi blocchi \\
+      Esclusione delle festivit\`a & Natale/Capodanno/Epifania non sono consumi rappresentativi \\
+      Blocchi distanziati & campionano condizioni diverse, non si addensano \\
+      \bottomrule
+    \end{tabularx}
+  \end{table}
+  \vspace{0.2em}
+  \small\color{CorpGray}
+  Blocchi correnti: \textbf{19--23 nov}, \textbf{9--13 dic}, \textbf{8--12 gen}. Ogni giorno \`e
+  risolto separatamente e i risultati vengono concatenati alla fine.
+\end{frame}
+
+% ============================================================ MODELLO: VARIABILI
+\begin{frame}{6 -- Il modello: variabili di decisione}
+  Per ogni giorno si costruisce e risolve un problema di \textbf{ottimizzazione lineare mista
+  intera} (MILP). Ogni apparecchio pu\`o funzionare a 3 livelli di potenza (basso / tipico / alto).
+
+  \vspace{0.5em}
+  \begin{table}\small
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{l l X}
+      \toprule
+      \textbf{Variabile} & \textbf{Tipo} & \textbf{Significato} \\
+      \midrule
+      $x_{i,t}$   & $\{0,1\}$ & apparecchio $i$ acceso allo slot $t$ \\
+      $z_{i,t,k}$ & $\{0,1\}$ & apparecchio $i$ al livello di potenza $k\in\{0,1,2\}$ \\
+      $u_{i,t}$   & $\{0,1\}$ & \emph{accensione}: fronte di salita in $t$ \\
+      $d_{i,t}$   & $\{0,1\}$ & \emph{spegnimento}: fronte di discesa in $t$ \\
+      $\ep_t,\ \en_t$ & $\ge 0$ & errore di ricostruzione (parte positiva / negativa) \\
+      \bottomrule
+    \end{tabularx}
+  \end{table}
+
+  \vspace{0.4em}
+  \small
+  I 3 livelli attorno alla potenza tipica: $\ p_{i,0}=(1-\delta)p_i,\quad p_{i,1}=p_i,\quad
+  p_{i,2}=(1+\delta)p_i\ $ con $\delta = 0.15$.
+  Il vincolo $x_{i,t}=\sum_k z_{i,t,k}$ garantisce che al pi\`u un livello sia attivo.
+\end{frame}
+
+% ============================================================ LOSS L1 + LINEARIZZAZIONE
+\begin{frame}{6 -- La loss $L_1$ e la sua linearizzazione}
+  Si misura quanto la somma degli apparecchi stimati \textbf{aderisce} al segnale, con l'errore
+  assoluto ($L_1$):
+  \[
+    \min \ \sum_{t \in \mathcal{V}} \Bigl|\, \hat{y}_t - y_t \,\Bigr|,
+    \qquad \hat{y}_t = \sum_i \sum_k p_{i,k}\, z_{i,t,k}
+  \]
+
+  \begin{block}{Il valore assoluto non \`e lineare $\Rightarrow$ si linearizza}
+    Si decompone l'errore in parte positiva e negativa con due variabili $\ge 0$:
+    \[
+      \hat{y}_t - \ep_t + \en_t = y_t, \qquad \ep_t \ge 0,\ \en_t \ge 0
+    \]
+    Minimizzando $\ep_t + \en_t$ (costo 1 su entrambe), all'ottimo \textbf{una delle due \`e sempre
+    nulla} e la somma vale esattamente $|\hat{y}_t - y_t|$. Non serve alcun vincolo aggiuntivo:
+    entrambe hanno costo positivo, il solver non ha interesse a gonfiarle.
+  \end{block}
+
+  \vspace{0.2em}
+  \small\color{CorpGray}
+  Risultato: la loss diventa un \textbf{problema lineare}, risolvibile efficientemente con un solver
+  MILP standard, senza termini quadratici.
+\end{frame}
+
+% ============================================================ MODELLO FINALE: OBIETTIVO
+\begin{frame}{7 -- Il modello finale: la funzione obiettivo}
+  Il modello in uso (\code{cvxpy\_survey\_prior}) somma alla ricostruzione $L_1$ una serie di
+  \textbf{penalit\`a} che traducono il questionario. Tutte scalate per $p_i$ (la scala dell'errore $L_1$):
+
+  \vspace{-0.2em}
+  {\small
+  \begin{align*}
+    \min\ \ \underbrace{\sum_{t}\bigl(\ep_t + \en_t\bigr)}_{\text{ricostruzione } L_1}
+    &+ \underbrace{\lambda_w \sum_{i,t} p_i\, f_i(t)\, x_{i,t}}_{\text{fascia oraria (soft)}}
+     + \underbrace{\lambda_a \sum_{i,t} p_i\, u_{i,t}}_{\text{costo di accensione}} \\[0.3em]
+    &+ \underbrace{\lambda_d \sum_{i,t} p_i\,(s^-_{i,t}+s^+_{i,t})}_{\text{durata fuori range (soft)}}
+     + \underbrace{\lambda_q \sum_i p_i\, e_i}_{\text{oltre la quota settimanale}}
+     + \underbrace{\lambda_s \!\!\sum_{t \notin \text{mesi}_i}\!\! p_i\, x_{i,t}}_{\text{fuori stagione}}
+  \end{align*}}
+
+  \vspace{-0.2em}
+  \begin{block}{Lettura}
+    \small
+    Il primo termine spinge a \textbf{spiegare il segnale}. Tutti gli altri sono il questionario:
+    ogni violazione (accendere fuori orario, fuori stagione, oltre la durata o la frequenza
+    dichiarate) ha un \textbf{costo}, mai un divieto. Il solver cerca la spiegazione pi\`u aderente
+    al segnale \emph{e} pi\`u coerente con quanto dichiarato dall'utente.
+  \end{block}
+\end{frame}
+
+% ============================================================ MODELLO FINALE: VINCOLI
+\begin{frame}[allowframebreaks]{7 -- Il modello finale: i vincoli}
+  \setlength{\jot}{0.9em}
+
+  Ricostruzione del segnale ($\forall\, t \in \mathcal{V}$):
+  \[
+    \sum_{i,k} p_{i,k}\, z_{i,t,k} - \ep_t + \en_t = y_t
+  \]
+
+  Link dei livelli ($\forall\, i,t$):
+  \[
+    x_{i,t} = \sum_{k=0}^{2} z_{i,t,k}, \qquad x_{i,t}\in\{0,1\}
+  \]
+
+  Transizioni di stato ($\forall\, i,\ t\ge 1$):
+  \[
+    x_{i,t} - x_{i,t-1} = u_{i,t} - d_{i,t}
+  \]
+
+  Una sola transizione per slot ($\forall\, i,\ t\ge 1$):
+  \[
+    u_{i,t} + d_{i,t} \le 1
+  \]
+
+  Apparecchi sempre accesi ($\forall\, j,\ t \in \mathcal{V}$):
+  \[
+    \sum_{k=0}^{2} z^{ao}_{j,t,k} = 1
+  \]
+
+  Durata minima ON ($\forall\, i,\ t \in [0,\,T-a_i]$):
+  \[
+    \sum_{\tau=t}^{t+a_i-1} x_{i,\tau} + s^-_{i,t} \ \ge\ a_i\, u_{i,t}
+  \]
+
+  Durata massima ON ($\forall\, i,\ t \in [0,\,T-b_i-1]$):
+  \[
+    \sum_{\tau=t}^{t+b_i} x_{i,\tau} - s^+_{i,t} \ \le\ b_i
+  \]
+
+  Sforo della quota settimanale ($\forall\, i$):
+  \[
+    \sum_{t} u_{i,t} - e_i \ \le\ r_i
+  \]
+
+  Slot non validi ($\forall\, t \notin \mathcal{V}$):
+  \[
+    x_{i,t} = \ep_t = \en_t = 0
+  \]
+
+  Non negativit\`a:
+  \[
+    \ep_t,\ \en_t,\ s^-_{i,t},\ s^+_{i,t},\ e_i \ \ge\ 0
+  \]
+\end{frame}
+
+% ============================================================ CONTATORE QUOTA SETTIMANALE
+\begin{frame}{7 -- Lo sforo settimanale: il contatore fuori dal modello}
+  \begin{block}{Il vincolo}
+    \[
+      \sum_{t} u_{i,t} - e_i \ \le\ r_i, \qquad e_i \ge 0
+    \]
+    \small
+    $r_i$ = accensioni ancora disponibili nella settimana. Le prime $r_i$ accensioni pagano solo
+    $\lambda_a$; ogni accensione \textbf{oltre} la quota fa crescere $e_i$ e paga il sovrapprezzo
+    $\lambda_q\, p_i\, e_i$ nella funzione obiettivo.
+  \end{block}
+
+  \begin{exampleblock}{Perch\'e il contatore vive \emph{fuori} dal modello}
+    \small
+    Ogni giorno \`e un MILP indipendente: la quota settimanale \textbf{non pu\`o} essere una
+    variabile, \`e uno stato che attraversa i giorni.
+    \begin{enumerate}
+      \item i giorni si risolvono in ordine cronologico;
+      \item il contatore si azzera ogni luned\`i (settimana ISO);
+      \item la quota residua $r_i$ entra nel giorno come \textbf{costante};
+      \item dopo il solve si contano le accensioni e si aggiorna il contatore.
+    \end{enumerate}
+  \end{exampleblock}
+\end{frame}
+
+% ============================================================ I PRIOR DEL QUESTIONARIO
+\begin{frame}{7 -- Come il questionario entra nel modello}
+  Quattro dichiarazioni dell'utente, quattro penalit\`a soft:
+  \vspace{0.2em}
+  \begin{table}\small
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabularx}{\textwidth}{l l X}
+      \toprule
+      \textbf{Dichiarazione} & \textbf{Termine} & \textbf{Effetto} \\
+      \midrule
+      Fascia oraria d'uso & $\lambda_w\, f_i(t)$ &
+        accendere lontano dall'orario dichiarato costa; chi dichiara una finestra
+        \emph{stretta} vince dentro di essa \\
+      Frequenza settimanale & $\lambda_q\, e_i$ &
+        le accensioni oltre la quota dichiarata pagano un sovrapprezzo (evita
+        ``lavatrice accesa tutti i giorni'') \\
+      Mesi di utilizzo & $\lambda_s$ &
+        un climatizzatore dichiarato estivo non spiega un plateau di dicembre \\
+      Durata del ciclo & $\lambda_d$ &
+        blocchi troppo lunghi o troppo corti rispetto al dichiarato sono penalizzati \\
+      \bottomrule
+    \end{tabularx}
+  \end{table}
+
+\end{frame}
+
+% ============================================================ METRICA
+\begin{frame}{8 -- Come si misura la qualit\`a}
+  Senza etichette, la metrica principale \`e l'\textbf{errore di ricostruzione} (MAE):
+  \[
+    \mathrm{MAE} = \frac{1}{|\mathcal{V}|}\sum_{t\in\mathcal{V}}
+      \Bigl|\, y_t - \sum_i \hat{w}_i(t) \,\Bigr|
+  \]
+  \begin{alertblock}{Attenzione all'interpretazione}
+    \small
+    Un MAE basso indica che la somma degli apparecchi \textbf{ricostruisce bene il segnale}, ma
+    \textbf{non} garantisce che l'attribuzione fra apparecchi sia corretta: senza verit\`a di
+    riferimento, i risultati vanno letti come una \textbf{ripartizione plausibile}, coerente con
+    segnale e questionario, non come una misura verificata per apparecchio.
+  \end{alertblock}
+  
+\end{frame}
+
+% ============================================================ RISULTATI BUONI 1
+% ------------------------------------------------------------ GOOD
+\begin{frame}{9 -- Risultati: dove funziona}
+  \centering
+  \includegraphics[width=0.92\textwidth]{{images/good/887 - 2026-01-08}.png}\\[0.3em]
+  \footnotesize\color{CorpGray} IMEI 86684007269887 --- 2026-01-08
+  \vspace{0.4em}
+  \begin{block}{Lettura}
+    \small\normalcolor
+    Il questionario specifica che alla \textbf{sera} (17--22) viene usata la \textbf{lavastoviglie}
+    e di \textbf{notte} (22--6) la \textbf{lavatrice}: il modello attribuisce gli eventi in modo
+    coerente con quanto dichiarato.
+  \end{block}
+\end{frame}
+
+\begin{frame}{9 -- Risultati: dove funziona}
+  \centering
+  \includegraphics[width=0.92\textwidth]{{images/good/889 - 2025-12-09}.png}\\[0.3em]
+  \footnotesize\color{CorpGray} IMEI 86684007269889 --- 2025-12-09
+  \vspace{0.4em}
+  \begin{block}{Lettura}
+    \small\normalcolor
+    Il questionario suggerisce la \textbf{lavatrice} dalle 17 alle 22 e la \textbf{lavastoviglie}
+    a cena: l'attribuzione segue le finestre orarie dichiarate.
+  \end{block}
+\end{frame}
+
+% ------------------------------------------------------------ NOGOOD
+\begin{frame}{10 -- Risultati: dove funziona peggio}
+  \centering
+  \includegraphics[width=0.92\textwidth]{{images/nogood/179 - 2026-01-08}.png}\\[0.3em]
+  \footnotesize\color{CorpGray} IMEI 86853106211179 --- 2026-01-08
+  % <-- commento qui
+\end{frame}
+
+\begin{frame}{10 -- Risultati: dove funziona peggio}
+  \centering
+  \includegraphics[width=0.92\textwidth]{{images/nogood/179 - 2026-01-11}.png}\\[0.3em]
+  \footnotesize\color{CorpGray} IMEI 86853106211179 --- 2026-01-11
+  \vspace{0.4em}
+  \begin{block}{Lettura}
+    \small\normalcolor
+    Essendo il questionario quasi vuoto (nessuna finestra oraria dichiarata), il modello assegna
+    l'evento al dispositivo che meglio si adatta per \textbf{consumo e durata}, in assenza di
+    vincoli temporali che lo guidino.
+  \end{block}
+\end{frame}
+
+\begin{frame}{10 -- Risultati: dove funziona peggio}
+  \centering
+  \includegraphics[width=0.92\textwidth]{{images/nogood/889 - 2025-11-19}.png}\\[0.3em]
+  \footnotesize\color{CorpGray} IMEI 86684007269889 --- 2025-11-19
+  \vspace{0.4em}
+  \begin{block}{Lettura}
+    \small\normalcolor
+    Superata la \textbf{durata massima} della lavatrice (il questionario dichiara 1--2 ore), il
+    modello preferisce \textbf{attivare un secondo dispositivo}: la penalit\`a di attivazione costa
+    meno che sforare la durata dichiarata.
+  \end{block}
+\end{frame}
+
+% ------------------------------------------------------------ NOSENSE
+\begin{frame}{10 -- Risultati: casi privi di senso}
+  \centering
+  \includegraphics[width=0.92\textwidth]{{images/nosense/162 - 2025-11-19}.png}\\[0.3em]
+  \footnotesize\color{CorpGray} IMEI 86853106211162 --- 2025-11-19
+  % <-- commento qui
+\end{frame}
+
+\begin{frame}{10 -- Risultati: casi privi di senso}
+  \centering
+  \includegraphics[width=0.92\textwidth]{{images/nosense/889 - 2025-12-12}.png}\\[0.3em]
+  \footnotesize\color{CorpGray} IMEI 86684007269889 --- 2025-12-12
+  % <-- commento qui
+\end{frame}
+
+% ============================================================ ORIGINE ERRORI 1 - DATI
+\begin{frame}{11 -- Origine degli errori: la carenza di dati}
+  \begin{block}{Cosa manca nel dato}
+    \small
+    \begin{itemize}
+      \item \textbf{Nessuna etichetta}: impossibile verificare l'attribuzione, solo la ricostruzione;
+      \item \textbf{una sola misura aggregata}: apparecchi di potenza simile sono indistinguibili;
+      \item \textbf{buchi nel segnale}: interi periodi senza dati, esclusi dall'analisi;
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ============================================================ ORIGINE ERRORI 2 - QUESTIONARIO
+\begin{frame}{11 -- Origine degli errori: il questionario disallineato}
+  Gli errori pi\`u grossi nascono quando il questionario \textbf{non \`e allineato} col consumo reale.
+  Esempio: apparecchi sempre accesi dichiarati contro il segnale medio misurato.
+  \vspace{0.2em}
+  \begin{center}\small
+  \begin{tabular}{@{}l r r l@{}}
+    \toprule
+    \textbf{Casa} & \textbf{Segnale medio} & \textbf{Always-on dichiarati} & \textbf{Esito} \\
+    \midrule
+    A & $238.6\unit{W}$ & $125.0\unit{W}$ & regolare \\
+    B & $186.5\unit{W}$ & $125.0\unit{W}$ & regolare \\
+    \rowcolor{CorpLight}
+    \textbf{C} & $\mathbf{159.0}\unit{\mathbf{W}}$ & $\mathbf{325.0}\unit{\mathbf{W}}$ & \textbf{\color{CorpRed}sovrastima strutturale} \\
+    D & $757.8\unit{W}$ & $125.0\unit{W}$ & regolare \\
+    E & $199.1\unit{W}$ & $125.0\unit{W}$ & regolare \\
+    F & $715.1\unit{W}$ & $225.0\unit{W}$ & regolare \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.2em}
+  \begin{alertblock}{Il caso C}
+    \small
+    Dichiarati \textbf{due frigoriferi e un congelatore} ($325\unit{W}$ tipici) contro un consumo
+    medio di soli $159\unit{W}$. Poich\'e gli always-on \emph{devono} essere accesi, il modello
+    sovrastima per costruzione. O gli apparecchi dichiarati non consumano davvero, o le potenze
+    tipiche di riferimento sono troppo alte per quei modelli specifici.
+  \end{alertblock}
+\end{frame}
+
+% ============================================================ ESEMPI DISALLINEAMENTO
+\begin{frame}{11 -- Altri esempi di disallineamento questionario/dato}
+  \begin{block}{Fascia oraria imprecisa}
+    \small
+    Un apparecchio dichiarato ``18:00--22:00'' ma effettivamente usato di mattina: il modello paga
+    la penalit\`a di finestra e, se l'evidenza \`e debole, attribuisce l'evento a un altro
+    apparecchio dichiarato per quell'ora. $\Rightarrow$ attribuzione spostata.
+  \end{block}
+  \begin{block}{Stagionalit\`a mal dichiarata}
+    \small
+    Un climatizzatore lasciato ``attivo tutto l'anno'' diventa un jolly capace di assorbire qualsiasi
+    grande plateau, anche invernale. $\Rightarrow$ energia attribuita all'apparecchio
+    sbagliato.
+  \end{block}
+  \begin{block}{Frequenza/durata sovrastimate}
+    \small
+    Una lavatrice dichiarata ``ogni giorno, 3 ore'' consuma quota e budget di durata che il segnale
+    non sostiene: il modello la accende comunque per non pagare, gonfiando il suo consumo.
+  \end{block}
+  \vspace{0.1em}
+  \centering\small\color{CorpGray}
+  \textbf{In tutti i casi: il prior sbagliato non viene ignorato --- viene ``pagato'', e il costo
+  distorce l'attribuzione.}
+\end{frame}
+
+% ============================================================ CONCLUSIONI
+\begin{frame}{12 -- Conclusioni e raccomandazioni}
+  \begin{columns}[T]
+    \column{0.45\textwidth}
+    \begin{exampleblock}{Punti di forza}
+      \small
+      \begin{itemize}
+        \item pipeline robusta di pulizia del dato;
+        \item questionario come prior soft, mai veto;
+        \item solver aperto, nessuna licenza.
+      \end{itemize}
+    \end{exampleblock}
+    \column{0.45\textwidth}
+    \begin{alertblock}{Dove intervenire}
+      \small
+      \begin{itemize}
+        \item \textbf{questionario}: pochi campi chiave (always-on, stagione) hanno impatto enorme;
+        \item \textbf{dati di riferimento}: alcune case strumentate per validare;
+        \item \textbf{potenze tipiche}: tarare la base di conoscenza sui modelli device corretti.
+      \end{itemize}
+    \end{alertblock}
+  \end{columns}
+
+\end{frame}
+
+\begin{frame}[plain]
+  \centering
+  \vspace{2cm}
+  {\Huge\bfseries\color{CorpBlue} Grazie}\\[0.6cm]
+  {\large\color{CorpGray} Domande e discussione}
+\end{frame}
+
+\end{document}

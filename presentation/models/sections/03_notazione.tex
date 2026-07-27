@@ -1,0 +1,107 @@
+\chapter{Notazione}
+\label{ch:notazione}
+
+\section{Indici e insiemi}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Simbolo} & \textbf{Dominio} & \textbf{Significato} \\
+\midrule
+$t$        & $0,\dots,T-1$ & indice dello slot temporale \\
+$T$        & $\mathbb{N}$  & numero di slot in un giorno (96 con slot da 15 minuti) \\
+$i$        & $1,\dots,n$   & indice degli \emph{event device} (elettrodomestici a ciclo) \\
+$j$        & $1,\dots,m$   & indice dei device \emph{always-on} (frigoriferi, congelatore) \\
+$k$        & $\{0,1,2\}$   & indice del livello di potenza (basso, medio, alto) \\
+$K$        & $=3$          & numero di livelli di potenza \\
+$\Vset$    & $\subseteq \{0,\dots,T-1\}$ & slot con segnale valido (non mancante) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Tutte le variabili associate a uno slot non valido ($t \notin \Vset$) sono fissate a zero
+tramite i limiti superiori delle colonne. In questo modo i buchi di misura non generano
+attivazioni fittizie né contribuiscono all'errore di ricostruzione.
+
+\section{Dati del problema}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Simbolo} & \textbf{Unità} & \textbf{Significato} \\
+\midrule
+$y_t$        & W      & segnale aggregato misurato allo slot $t$ \\
+$p_i$        & W      & potenza tipica del device $i$ (\code{p\_typical\_w}) \\
+$p_{i,k}$    & W      & potenza del device $i$ al livello $k$ \\
+$\delta$     & ---    & scarto frazionario dei livelli (\code{power\_level\_variation}, 0.15) \\
+$a_i$        & slot   & durata minima di accensione, $\lceil \code{dur\_min\_min} / g \rceil$ \\
+$b_i$        & slot   & durata massima di accensione consecutiva \\
+$g$          & minuti & ampiezza dello slot (\code{granularity\_min}, default 15) \\
+$W_i$        & ore    & ampiezza della fascia oraria dichiarata (24 se non dichiarata) \\
+$E_i$        & slot   & monte ore giornaliero atteso dal questionario \\
+$r_i$        & ---    & accensioni ancora disponibili nella settimana \\
+$s_i$        & slot   & durata tipica di un ciclo, $\code{dur\_typical\_min} / g$ \\
+$f_i(t)$     & ---    & fattore temporale del device $i$ allo slot $t$ (cap.~\ref{ch:fattore}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+I tre livelli di potenza sono costruiti simmetricamente attorno al valore tipico:
+\begin{equation}
+  p_{i,0} = p_i (1-\delta), \qquad
+  p_{i,1} = p_i, \qquad
+  p_{i,2} = p_i (1+\delta).
+  \label{eq:livelli}
+\end{equation}
+Con $\delta = 0.15$ ogni apparecchio può assorbire il $15\%$ in più o in meno rispetto al valore
+nominale. Questo assorbe la variabilità reale dei consumi (tensione di rete, carico, usura) senza
+introdurre variabili continue di potenza, che renderebbero il problema molto più difficile.
+
+\section{Variabili di decisione}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Simbolo} & \textbf{Tipo} & \textbf{Significato} \\
+\midrule
+$x_{i,t}$        & binaria    & il device $i$ è acceso allo slot $t$ \\
+$z_{i,t,k}$      & binaria    & il device $i$ opera al livello $k$ allo slot $t$ \\
+$z^{\text{ao}}_{j,t,k}$ & binaria & il device always-on $j$ opera al livello $k$ allo slot $t$ \\
+$u_{i,t}$        & binaria    & fronte di salita: il device $i$ si accende in $t$ \\
+$\dw_{i,t}$      & binaria    & fronte di discesa: il device $i$ si spegne in $t$ \\
+$\ep_t$          & continua $\ge 0$ & sovrastima della ricostruzione allo slot $t$ \\
+$\en_t$          & continua $\ge 0$ & sottostima della ricostruzione allo slot $t$ \\
+$s^{-}_{i,t}$    & continua $\ge 0$ & slack di durata minima (ciclo troppo corto) \\
+$s^{+}_{i,t}$    & continua $\ge 0$ & slack di durata massima (ciclo troppo lungo) \\
+$d^{+}_i, d^{-}_i$ & continua $\ge 0$ & scostamento dal monte ore giornaliero atteso \\
+$e_i$            & continua $\ge 0$ & accensioni eccedenti la quota settimanale \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{notebox}{Corrispondenza con il codice}
+Le variabili $\ep_t$ ed $\en_t$ compaiono nel codice come \code{ep} ed \code{en}; $\dw_{i,t}$ come
+\code{dw}. Nei modelli che distinguono i due gruppi di apparecchi le variabili degli event device
+portano il suffisso \code{\_ev} e quelle degli always-on il suffisso \code{\_ao}.
+\end{notebox}
+
+\section{Coefficienti di penalità}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Simbolo} & \textbf{Nome nel codice} & \textbf{Penalizza} \\
+\midrule
+$\lambda_w$     & \code{time\_window\_penalty}     & accensione fuori dalla fascia oraria dichiarata \\
+$\lambda_a$     & \code{activation\_penalty}       & ogni singola accensione \\
+$\lambda_d$     & \code{duration\_penalty\_block}  & durata del ciclo fuori dai limiti dichiarati \\
+$\lambda_D$     & \code{duration\_penalty\_daily}  & monte ore giornaliero diverso dall'atteso \\
+$\lambda_{q,i}$ & derivato                          & accensioni oltre la quota settimanale \\
+$\lambda_s$     & \code{season\_penalty}           & uso fuori dai mesi dichiarati \\
+$w$             & \code{window\_vagueness\_weight} & genericità della fascia oraria dichiarata \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Tutti i coefficienti sono \textbf{adimensionali} e vengono moltiplicati per $p_i$ prima di entrare
+nell'obiettivo, come discusso nel capitolo~\ref{ch:perche-l1}.

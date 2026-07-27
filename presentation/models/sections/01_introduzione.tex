@@ -1,0 +1,70 @@
+\chapter{Introduzione e scopo del documento}
+
+\section{Il problema}
+
+Il \emph{Non-Intrusive Load Monitoring} (NILM) consiste nello stimare quali elettrodomestici
+sono accesi in ogni istante, disponendo del solo consumo \textbf{aggregato} dell'abitazione
+misurato da un unico dispositivo IoT. Non esistono etichette temporali: nessuno ha registrato
+quando la lavatrice è stata effettivamente avviata, quindi il problema è per costruzione
+\textbf{non supervisionato} e non è verificabile rispetto a una verità di riferimento.
+
+Il modello di misura è additivo:
+\begin{equation}
+  y(t) \;=\; \sum_{i=1}^{N} P_i \, x_i(t) \;+\; \eta(t),
+  \label{eq:modello-misura}
+\end{equation}
+dove $y(t)$ è la potenza aggregata letta dal contatore, $P_i$ la potenza assorbita
+dall'elettrodomestico $i$-esimo quando è in funzione, $x_i(t) \in \{0,1\}$ indica se è acceso e
+$\eta(t)$ raccoglie rumore di misura e carichi non modellati.
+
+Invertire la~\eqref{eq:modello-misura} è un problema mal posto: molte combinazioni diverse di
+elettrodomestici producono la stessa somma. Con dieci apparecchi ci sono $2^{10}$ configurazioni
+possibili per ogni istante, e un plateau da $1500\unit{W}$ può essere spiegato da una
+lavastoviglie, da un climatizzatore o dalla somma di due carichi minori in modo perfettamente
+equivalente rispetto al solo segnale.
+
+\section{Il ruolo del questionario}
+
+L'informazione che rende il problema trattabile non viene dal segnale ma dal
+\textbf{questionario} compilato dall'utente, che per ogni elettrodomestico dichiara:
+
+\begin{itemize}[nosep,leftmargin=1.4em]
+  \item se è presente in casa;
+  \item quante volte alla settimana viene usato (minimo e massimo);
+  \item quanto dura tipicamente un ciclo (minimo e massimo);
+  \item in quale fascia oraria viene tipicamente avviato;
+  \item quante ore al giorno resta acceso;
+  \item in quali mesi dell'anno viene usato.
+\end{itemize}
+
+Tutti i modelli descritti in questo documento traducono queste dichiarazioni in
+\textbf{penalità nella funzione obiettivo}, non in vincoli rigidi. La scelta è deliberata e
+attraversa l'intero progetto: il questionario è una fonte di informazione utile ma
+approssimativa, compilata a memoria, e va trattato come conoscenza a priori che il segnale può
+smentire quando l'evidenza è sufficientemente forte. Un vincolo rigido, al contrario, rende un
+errore di compilazione irrecuperabile.
+
+\begin{notebox}{Principio guida}
+Il questionario è un \emph{prior}, non un \emph{veto}. Ogni dichiarazione dell'utente diventa un
+costo da pagare per violarla, mai un divieto assoluto. La misura di quel costo è il contenuto
+principale di questo documento.
+\end{notebox}
+
+\section{Cosa contiene questo documento}
+
+I modelli sono presentati in ordine di costruzione: ciascuno estende il precedente aggiungendo
+un elemento, e l'ultimo (\code{cvxpy\_survey\_prior}) è quello attualmente in uso. Per ogni
+modello vengono date le variabili di decisione, la funzione obiettivo e l'insieme completo dei
+vincoli.
+
+Il capitolo~\ref{ch:obiettivo} è dedicato interamente all'\textbf{anatomia della funzione
+obiettivo}: cosa rappresenta ciascun termine, perché è scalato in quel modo, quale significato
+concreto ha il valore numerico del suo coefficiente e come si comporta il modello al variare di
+quel valore. È la parte da leggere per capire come tarare il sistema.
+
+\begin{notebox}{Nota sulla denominazione}
+Le chiavi degli approcci nel codice iniziano con il prefisso \code{cvxpy\_} per ragioni
+storiche, ma \textbf{CVXPY non è più utilizzato}. I modelli sono costruiti e risolti invocando
+direttamente HiGHS attraverso la libreria \code{highspy}. Il prefisso è stato mantenuto per non
+rompere la continuità con i risultati già prodotti.
+\end{notebox}

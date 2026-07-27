@@ -1,0 +1,158 @@
+\chapter{Il fattore temporale \texorpdfstring{$f_i(t)$}{fi(t)}}
+\label{ch:fattore}
+
+Il fattore $f_i(t)$ modula la penalità di fascia oraria (termine~2 del
+capitolo~\ref{ch:obiettivo}). È l'elemento del modello che traduce nel modo più diretto le
+dichiarazioni orarie del questionario, e ha due componenti indipendenti.
+
+\section{Formulazione completa}
+
+\begin{modelbox}{Fattore temporale}
+Sia $d_i(t)$ la distanza \textbf{circolare}, in minuti, fra lo slot $t$ e la fascia dichiarata più
+vicina dell'apparecchio $i$ (nulla se $t$ cade dentro la fascia). Allora
+\begin{equation}
+  f_i(t) =
+  \begin{cases}
+    w \cdot \vag_i
+    & \text{se } t \text{ è dentro la fascia dichiarata,}\\[6pt]
+    w \cdot \vag_i \;+\; \min\!\left( F_{\max},\; 1 + \dfrac{d_i(t)}{\rho} \right)
+    & \text{altrimenti,}
+  \end{cases}
+  \label{eq:fattore}
+\end{equation}
+dove $\rho$ è \code{window\_penalty\_ramp\_min} (60 minuti), $F_{\max}$ è
+\code{window\_penalty\_max\_factor} (6) e $w$ è \code{window\_vagueness\_weight}.
+\end{modelbox}
+
+\section{Prima componente: distanza dalla fascia}
+
+Il secondo addendo della~\eqref{eq:fattore} penalizza lo scostamento dall'orario dichiarato, in
+modo \textbf{graduale}.
+
+\paragraph{Perché graduale.} Una penalità piatta tratterebbe allo stesso modo un'attivazione dieci
+minuti dopo la fine della fascia e una a otto ore di distanza. La prima è del tutto plausibile ---
+l'utente ha indicato un orario di massima, non un vincolo --- la seconda contraddice la
+dichiarazione. La formulazione a rampa distingue i due casi.
+
+\paragraph{Comportamento.} Sul bordo della fascia il fattore vale 1, cioè la penalità base; cresce
+di un'unità ogni $\rho = 60$ minuti di allontanamento; satura a $F_{\max} = 6$ anziché divergere.
+La saturazione evita che apparecchi molto distanti dalla propria fascia ricevano penalità
+arbitrariamente grandi, che li renderebbero di fatto inutilizzabili e comprometterebbero la
+ricostruzione nelle ore scoperte.
+
+\paragraph{Distanza circolare.} La distanza è calcolata sul quadrante delle 24 ore, non sulla retta
+dei minuti. Questo è necessario perché molte fasce dichiarate scavalcano la mezzanotte: per una
+fascia $23{:}00$--$02{:}00$, le $01{:}00$ sono \emph{dentro} e le $22{:}30$ distano trenta minuti,
+non ventitré ore e mezza.
+
+\section{Seconda componente: genericità della dichiarazione}
+
+Il primo addendo della~\eqref{eq:fattore} è un \textbf{pavimento} costante, presente anche dentro
+la fascia dichiarata.
+
+\subsection{Il problema che risolve}
+
+Nella formulazione senza pavimento ($w = 0$) si verifica un'asimmetria non voluta:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Apparecchio} & \textbf{Costo} & \textbf{Situazione} \\
+\midrule
+con fascia, dentro    & $0$        & non paga nulla \\
+con fascia, fuori     & $\ge \lambda_w p_i$ & paga la penalità graduata \\
+\textbf{senza fascia} & $\mathbf{0}$ & \textbf{non paga nulla, a nessuna ora} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Un apparecchio che non ha dichiarato alcun orario è quindi un \textbf{jolly gratuito}: può
+assorbire qualsiasi plateau a qualsiasi ora senza costo. Nella fascia serale dichiarata dalla
+lavastoviglie, lavastoviglie e climatizzatore pagano entrambi zero: pareggiano, e la scelta fra
+loro è arbitraria --- decisa da dettagli numerici privi di significato fisico.
+
+\subsection{L'impostazione corretta}
+
+La soluzione \textbf{non} consiste nel penalizzare l'assenza di dichiarazione. Molti apparecchi
+non hanno realmente un orario tipico --- climatizzatore, televisore, computer si usano a qualsiasi
+ora --- e l'assenza di dichiarazione è \emph{assenza di informazione}, non evidenza di
+implausibilità. Penalizzarli in quanto tali sarebbe scorretto.
+
+L'impostazione adottata è diversa: \textbf{``nessuna fascia'' viene letta come ``fascia di 24
+ore''}, che è letteralmente ciò che significa, e si penalizza quanto poco la dichiarazione
+restringe il campo.
+
+\begin{modelbox}{Misura di genericità}
+\begin{equation}
+  \vag_i \;=\; \frac{\log W_i}{\log 24} \;\in\; [0,1],
+  \label{eq:vaghezza}
+\end{equation}
+dove $W_i$ è l'ampiezza complessiva in ore delle fasce dichiarate, posta a 24 in assenza di
+dichiarazione.
+\end{modelbox}
+
+\subsection{Da dove viene la forma logaritmica}
+
+La~\eqref{eq:vaghezza} non è una scelta arbitraria ma discende dalla verosimiglianza. Si modelli
+l'orario di avvio dell'apparecchio come una variabile aleatoria uniforme sulla fascia dichiarata:
+la densità di probabilità è $1/W_i$. Il costo informativo di affermare che l'apparecchio è attivo
+in un dato istante è allora
+\begin{equation}
+  -\log \frac{1}{W_i} \;=\; \log W_i ,
+\end{equation}
+e la normalizzazione per $\log 24$ riporta la scala all'intervallo $[0,1]$, con una fascia di
+un'ora a 0 e l'assenza di dichiarazione a 1.
+
+L'interpretazione è la seguente: \textbf{chi si sbilancia su poche ore formula un'affermazione più
+falsificabile, e riceve uno sconto quando l'evento cade effettivamente dentro la fascia
+dichiarata}. Chi non si sbilancia non viene punito, semplicemente non riceve alcuno sconto.
+
+\subsection{Valori sul campione reale}
+
+\begin{center}
+\begin{tabular}{@{}l l r r@{}}
+\toprule
+\textbf{Apparecchio} & \textbf{Fascia dichiarata} & $W_i$ & $\vag_i$ \\
+\midrule
+Lavastoviglie   & $19{:}00$--$22{:}00$ & 3 h  & 0.35 \\
+Lavatrice       & $17{:}00$--$22{:}00$ & 5 h  & 0.51 \\
+Lavatrice       & $10{:}00$--$17{:}00$ & 7 h  & 0.61 \\
+Climatizzatore  & nessuna              & 24 h & 1.00 \\
+Asciugatrice    & nessuna              & 24 h & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Si osservi che una fascia di 7 ore ottiene $0.61$, non molto lontano da $1.00$: la scala
+logaritmica riconosce che una dichiarazione così ampia è \emph{quasi} priva di informazione, il che
+è corretto.
+
+\subsection{Effetto sull'ordinamento}
+
+La tabella seguente riporta il fattore $f_i(t)$ con $w = 1$ per una lavastoviglie con fascia
+$19{:}00$--$22{:}00$ e un climatizzatore senza fascia dichiarata.
+
+\begin{center}
+\begin{tabular}{@{}l r r l@{}}
+\toprule
+\textbf{Ora} & \textbf{Lavastoviglie} & \textbf{Climatizzatore} & \textbf{Preferito} \\
+\midrule
+$10{:}00$ & 6.35 & 1.00 & climatizzatore \\
+$19{:}00$ & 0.35 & 1.00 & \textbf{lavastoviglie} \\
+$21{:}00$ & 0.35 & 1.00 & \textbf{lavastoviglie} \\
+$22{:}00$ & 1.36 & 1.00 & climatizzatore \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Il comportamento è quello desiderato in entrambe le direzioni: l'apparecchio specifico prevale
+\textbf{soltanto dentro la fascia che ha dichiarato}, e l'ordinamento si inverte correttamente
+appena se ne esce. Il pavimento non rende la lavastoviglie preferibile ovunque, ma solo dove la
+sua dichiarazione lo giustifica.
+
+\section{Retrocompatibilità}
+
+Con $w = 0$ il pavimento scompare e la~\eqref{eq:fattore} si riduce alla formulazione originale:
+fattore nullo dentro la fascia e penalità graduata soltanto fuori, con gli apparecchi senza fascia
+che non pagano nulla. Tutti i modelli dal paragrafo~\ref{sec:m1} al~\ref{sec:m5} usano questa
+impostazione; solo \code{cvxpy\_survey\_prior} attiva il pavimento.

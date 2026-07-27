@@ -1,0 +1,129 @@
+\documentclass[11pt,a4paper]{report}
+
+% ---------------------------------------------------------------- encoding --
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{lmodern}
+
+% ------------------------------------------------------------------- matema --
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+
+% ------------------------------------------------------------------ layout --
+\usepackage[a4paper,margin=2.6cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+% ------------------------------------------------------- palette aziendale --
+\definecolor{CorpBlue}{HTML}{0F4C81}
+\definecolor{CorpTeal}{HTML}{1C7C7D}
+\definecolor{CorpOrange}{HTML}{D17A22}
+\definecolor{CorpLight}{HTML}{F3F6FA}
+\definecolor{CorpGray}{HTML}{5B6573}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=CorpBlue,
+  urlcolor=CorpTeal,
+  citecolor=CorpBlue,
+}
+
+% ------------------------------------------------------------------- stili --
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{CorpBlue}}
+  {\chaptertitlename\ \thechapter}{12pt}{\Huge}
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{CorpBlue}}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{CorpTeal}}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\color{CorpGray}NILM --- Formulazione dei modelli HiGHS}
+\fancyhead[R]{\small\color{CorpGray}\thepage}
+
+% ------------------------------------------------------------------- boxes --
+\newtcolorbox{modelbox}[1]{
+  colback=CorpLight, colframe=CorpBlue, coltitle=white,
+  fonttitle=\bfseries, title={#1},
+  boxrule=0.8pt, arc=2pt, left=6pt, right=6pt, top=6pt, bottom=6pt,
+  breakable
+}
+\newtcolorbox{notebox}[1]{
+  colback=white, colframe=CorpTeal, coltitle=white,
+  fonttitle=\bfseries, title={#1},
+  boxrule=0.7pt, arc=2pt, left=6pt, right=6pt, top=5pt, bottom=5pt,
+  breakable
+}
+\newtcolorbox{warnbox}[1]{
+  colback=white, colframe=CorpOrange, coltitle=white,
+  fonttitle=\bfseries, title={#1},
+  boxrule=0.7pt, arc=2pt, left=6pt, right=6pt, top=5pt, bottom=5pt,
+  breakable
+}
+
+% -------------------------------------------------------------- shorthands --
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\ep}{\varepsilon^{+}}
+\newcommand{\en}{\varepsilon^{-}}
+\newcommand{\dw}{\mathit{dw}}
+\newcommand{\Vset}{\mathcal{V}}
+\newcommand{\vag}{\operatorname{vaghezza}}
+\newcommand{\unit}[1]{\,\mathrm{#1}}
+
+\begin{document}
+
+% ---------------------------------------------------------------- frontespizio
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+
+{\Huge\bfseries\color{CorpBlue} Disaggregazione NILM\par}
+\vspace{0.6cm}
+{\LARGE\color{CorpGray} Formulazione dei modelli di ottimizzazione\par}
+\vspace{0.3cm}
+{\large\color{CorpGray} Programmazione lineare mista intera (MILP) risolta con HiGHS\par}
+
+\vspace{2.2cm}
+\rule{0.75\textwidth}{1.2pt}
+
+\vspace{1.2cm}
+\begin{minipage}{0.8\textwidth}
+\centering\large\color{CorpGray}
+Documento tecnico di riferimento: struttura completa dei modelli,
+significato di ogni termine della funzione obiettivo,
+interpretazione e taratura dei coefficienti.
+\end{minipage}
+
+\vfill
+{\large\color{CorpGray} Versione dei modelli documentata: da \code{cvxpy} a \code{cvxpy\_survey\_prior}\par}
+\vspace{0.4cm}
+{\color{CorpGray}\today\par}
+\end{titlepage}
+
+\tableofcontents
+\cleardoublepage
+
+\input{sections/01_introduzione}
+\input{sections/02_perche_l1}
+\input{sections/03_notazione}
+\input{sections/04_pipeline}
+\input{sections/05_modelli}
+\input{sections/06_obiettivo}
+\input{sections/07_fattore_temporale}
+\input{sections/08_parametri}
+\input{sections/09_limiti}
+
+\end{document}

@@ -1,0 +1,95 @@
+\chapter{Perché un MILP con errore \texorpdfstring{$L_1$}{L1}}
+\label{ch:perche-l1}
+
+\section{Il vincolo imposto dal solver}
+
+HiGHS risolve problemi di programmazione lineare (LP) e lineare mista intera (MILP), ma
+\textbf{non accetta termini quadratici}. Non esiste inoltre una funzione obiettivo simbolica come
+in altri solver: l'obiettivo è un \textbf{vettore di coefficienti} $c$, uno per ciascuna variabile
+del problema, e il solver minimizza il prodotto scalare
+\begin{equation}
+  \min_{v} \; c^{\mathsf{T}} v .
+\end{equation}
+
+Questa è una restrizione forte e determina tutto ciò che segue: \textbf{ogni penalità del modello
+deve essere esprimibile come un coefficiente costante moltiplicato per una variabile}. Non si
+possono penalizzare prodotti di variabili, né funzioni non lineari di esse. Quando nel seguito
+compare una penalità apparentemente complessa --- per esempio proporzionale a quanto un ciclo
+sfora la durata massima --- la sua realizzazione consiste sempre nell'introdurre una variabile
+ausiliaria e assegnarle un coefficiente lineare.
+
+\section{Dall'errore quadratico all'errore assoluto}
+
+La scelta naturale per misurare la qualità della ricostruzione sarebbe l'errore quadratico
+\begin{equation}
+  \sum_{t} \bigl( \hat{y}(t) - y(t) \bigr)^2 ,
+  \qquad
+  \hat{y}(t) = \sum_i P_i x_i(t),
+\end{equation}
+che però è quadratico e quindi inammissibile. Si adotta allora l'errore assoluto ($L_1$)
+\begin{equation}
+  \sum_{t} \bigl| \hat{y}(t) - y(t) \bigr| ,
+\end{equation}
+che pur non essendo lineare può essere \textbf{linearizzato esattamente}.
+
+\subsection{La linearizzazione}
+
+Si introducono per ogni istante due variabili continue non negative, $\ep_t$ ed $\en_t$, e si
+impone l'uguaglianza
+\begin{equation}
+  \hat{y}(t) \;-\; \ep_t \;+\; \en_t \;=\; y(t),
+  \qquad \ep_t \ge 0, \quad \en_t \ge 0 ,
+  \label{eq:linearizzazione}
+\end{equation}
+minimizzando poi la somma $\ep_t + \en_t$ con coefficiente unitario su entrambe.
+
+Il meccanismo è il seguente. La~\eqref{eq:linearizzazione} si riscrive come
+$\ep_t - \en_t = \hat{y}(t) - y(t)$: le due variabili devono avere differenza pari al residuo, ma
+la loro \emph{somma} non è vincolata dall'alto. Poiché entrambe compaiono nell'obiettivo con
+costo positivo, il solver non ha alcun interesse a gonfiarle: all'ottimo almeno una delle due vale
+sempre zero, e di conseguenza
+\begin{equation}
+  \ep_t + \en_t \;=\; \bigl| \hat{y}(t) - y(t) \bigr| .
+\end{equation}
+Non serve alcun vincolo aggiuntivo per imporre questa proprietà --- discende dal segno dei
+coefficienti. In pratica $\ep_t$ misura di quanto il modello \emph{sovrastima} il consumo reale in
+quell'istante ed $\en_t$ di quanto lo \emph{sottostima}; una sola delle due è attiva per volta.
+
+\begin{modelbox}{Termine di ricostruzione}
+\begin{equation*}
+  \sum_{t \in \Vset} \bigl( \ep_t + \en_t \bigr)
+  \qquad\text{soggetto a}\qquad
+  \hat{y}(t) - \ep_t + \en_t = y(t) \quad \forall t \in \Vset
+\end{equation*}
+\end{modelbox}
+
+\section{Conseguenza sulla scala delle penalità}
+
+Questa scelta ha un effetto diretto sulla taratura di tutto il modello, ed è il punto più
+importante da tenere presente leggendo i capitoli seguenti.
+
+L'errore di ricostruzione è misurato in \textbf{watt}. Perché una penalità sia commensurabile con
+esso --- cioè perché abbia senso sommarla nella stessa funzione obiettivo --- deve avere la stessa
+dimensione fisica. È per questa ragione che \textbf{tutte le penalità del modello sono scalate per
+la potenza tipica $p_i$ dell'elettrodomestico a cui si riferiscono}: i coefficienti $\lambda$ sono
+adimensionali e il prodotto $\lambda \cdot p_i$ restituisce watt.
+
+La conseguenza pratica è un'interpretazione uniforme e immediata di ogni coefficiente:
+\begin{center}
+\begin{minipage}{0.88\textwidth}
+\itshape
+un coefficiente pari a 1 significa che violare quella dichiarazione del questionario una volta
+costa esattamente quanto lasciare $p_i$ watt non spiegati per la durata di uno slot.
+\end{minipage}
+\end{center}
+
+Questo è il \emph{punto di pareggio}, e su di esso si basa tutta la taratura discussa nel
+capitolo~\ref{ch:parametri}. Sotto 1 la penalità è più debole dell'evidenza del segnale e il
+modello preferisce spiegare i dati; sopra 1 prevale la dichiarazione dell'utente.
+
+\begin{warnbox}{Differenza rispetto ai modelli quadratici}
+Nei modelli risolti con Gurobi, dove l'obiettivo è quadratico, le penalità sono scalate per
+$p_i^2$ anziché per $p_i$, per essere commensurabili con l'errore \emph{quadratico}. Le due
+famiglie di modelli condividono struttura e vincoli ma \textbf{non i valori numerici dei
+coefficienti}, che non sono trasferibili dall'una all'altra.
+\end{warnbox}

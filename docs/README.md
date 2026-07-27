@@ -81,10 +81,10 @@ signal-disaggregation/
 
 | Documento | Contenuto |
 |-----------|-----------|
-| [approaches_fhmm_hsmm.md](approaches_fhmm_hsmm.md) | Formulazioni di `fhmm_survey` e `hsmm_survey` |
-| [approaches_gurobi.md](approaches_gurobi.md) | Formulazioni MIQP di `gurobi_activation`, `gurobi_full` e `gurobi_soft_duration` |
-| [approaches_cvxpy.md](approaches_cvxpy.md) | Equivalenti MILP L1 su HiGHS |
-| [fhmm_formule.md](fhmm_formule.md) | Derivazione matematica del modello FHMM |
+| [modelli_highs.md](modelli_highs.md) | Formulazione completa e autoconsistente dei modelli risolti con HiGHS, da `cvxpy` fino alla versione finale `cvxpy_survey_prior` |
+
+I documenti sulle formulazioni Gurobi e FHMM/HSMM sono stati rimossi; il codice dei rispettivi
+approcci resta in `scripts/nilm/`.
 
 ---
 
@@ -191,7 +191,7 @@ Due famiglie: modelli probabilistici grafici (nessun solver) e ottimizzazione co
 | `fhmm_survey` | `approach_fhmm_survey.py` | Factorial HMM con coordinate-ascent greedy. La soglia di attivazione `p_i/2` è modulata dal questionario (finestra oraria, stagione); il post-processing applica commitment window e cap su durata, frequenza e ore giornaliere. |
 | `hsmm_survey` | `approach_hsmm_survey.py` | Hidden Semi-Markov Model con Viterbi segment-based. Le durate entrano come **distribuzione esplicita** dentro l'inferenza invece che come post-processing — formalmente più corretto, ma più lento. |
 
-Dettagli e formule: [approaches_fhmm_hsmm.md](approaches_fhmm_hsmm.md).
+Le formulazioni FHMM/HSMM non sono documentate; il codice è in `approach_fhmm_survey.py` e `approach_hsmm_survey.py`.
 
 ### Ottimizzazione
 
@@ -208,9 +208,11 @@ Tutti risolvono un modello **giorno per giorno** su segnale ricampionato a 15 mi
 | `cvxpy_activation` | `approach_cvxpy_activation.py` | HiGHS (MILP, L1) | baseline |
 | `cvxpy_full` | `approach_cvxpy_full.py` | HiGHS (MILP, L1) | modellati come variabili |
 | `cvxpy_soft_duration` | `approach_cvxpy_soft_duration.py` | HiGHS (MILP, L1) | come `cvxpy_full`, con durata soft |
+| `cvxpy_weekly_quota` | `approach_cvxpy_weekly_quota.py` | HiGHS (MILP, L1) | + quota settimanale di accensioni |
+| **`cvxpy_survey_prior`** | `approach_cvxpy_survey_prior.py` | HiGHS (MILP, L1) | **versione finale**: + stagionalità (`active_months`) e specificità della finestra oraria |
 | `cvxpy_weekly_quota` | `approach_cvxpy_weekly_quota.py` | HiGHS (MILP, L1) | come `gurobi_weekly_quota` sul solver libero |
 
-Dettagli: [approaches_gurobi.md](approaches_gurobi.md) e [approaches_cvxpy.md](approaches_cvxpy.md).
+Dettagli sui modelli HiGHS: [modelli_highs.md](modelli_highs.md). Gli approcci Gurobi condividono la stessa struttura di vincoli, con obiettivo L2 al posto di L1 e penalità scalate per `p²` invece che `p`.
 
 ### Varianti
 

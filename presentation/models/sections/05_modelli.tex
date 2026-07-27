@@ -1,0 +1,393 @@
+\chapter{I modelli}
+\label{ch:modelli}
+
+I sei modelli formano una catena: ciascuno estende il precedente con un elemento. Questo capitolo
+li presenta in ordine, dando per ognuno le variabili introdotte, la funzione obiettivo e i vincoli.
+Il significato dettagliato dei singoli termini dell'obiettivo è nel capitolo~\ref{ch:obiettivo}.
+
+\section{Modello base --- \code{cvxpy}}
+\label{sec:m1}
+
+\noindent\textbf{Sorgente:} \code{approach\_cvxpy.py} $\rightarrow$ \code{constrained\_highs}\\
+\textbf{Always-on:} stimati come baseline e sottratti; il solver vede il residuo\\
+\textbf{Livelli di potenza:} 1 (acceso/spento)
+
+\subsection*{Funzione obiettivo}
+
+\begin{modelbox}{Obiettivo del modello base}
+\begin{equation}
+  \min \;\;
+  \underbrace{\sum_{t \in \Vset} \bigl( \ep_t + \en_t \bigr)}_{\text{errore di ricostruzione}}
+  \;+\;
+  \underbrace{\sum_{i} \sum_{t \in \Vset} \lambda_w \, p_i \, f_i(t) \, x_{i,t}}_{\text{fascia oraria}}
+  \;+\;
+  \underbrace{\sum_{i} \sum_{t \in \Vset} \lambda_a \, p_i \, u_{i,t}}_{\text{accensioni}}
+\end{equation}
+\end{modelbox}
+
+\subsection*{Vincoli}
+
+\paragraph{Ricostruzione del segnale.} Un'uguaglianza per ogni slot valido, che lega la somma
+delle potenze stimate al valore misurato attraverso le due variabili di errore:
+\begin{equation}
+  \sum_{i} p_i \, x_{i,t} \;-\; \ep_t \;+\; \en_t \;=\; y_t
+  \qquad \forall t \in \Vset .
+  \label{eq:ricostruzione-base}
+\end{equation}
+
+\paragraph{Coerenza delle transizioni.} Le variabili $u$ e $\dw$ devono corrispondere ai reali
+cambi di stato di $x$. Il vincolo fondamentale è un bilancio di flusso: la variazione di stato fra
+due slot consecutivi è pari alla differenza fra accensione e spegnimento.
+\begin{align}
+  u_{i,0} &= x_{i,0} && \forall i \label{eq:init-u}\\
+  \dw_{i,0} &= 0 && \forall i \label{eq:init-dw}\\
+  x_{i,t} - x_{i,t-1} - u_{i,t} + \dw_{i,t} &= 0 && \forall i,\; \forall t \ge 1 \label{eq:transizione}\\
+  u_{i,t} + \dw_{i,t} &\le 1 && \forall i,\; \forall t \ge 1 \label{eq:mutex}
+\end{align}
+La~\eqref{eq:init-u} tratta il primo slot del giorno come un'accensione se il device risulta
+acceso, dato che non esiste uno stato precedente da confrontare. La~\eqref{eq:mutex} impedisce che
+un apparecchio risulti contemporaneamente acceso e spento nello stesso istante: senza di essa la
+\eqref{eq:transizione} sarebbe soddisfatta anche da $u = \dw = 1$, che non ha significato fisico.
+
+\paragraph{Durata minima di accensione.} Se il device si accende allo slot $t$, deve restare acceso
+per almeno $a_i$ slot consecutivi:
+\begin{equation}
+  \sum_{\tau=t}^{t+a_i-1} x_{i,\tau} \;-\; a_i \, u_{i,t} \;\ge\; 0
+  \qquad \forall t \in [0,\, T-a_i].
+  \label{eq:durata-min}
+\end{equation}
+Il vincolo è attivo solo quando $u_{i,t} = 1$: in quel caso il membro sinistro impone che tutti gli
+$a_i$ slot della finestra siano accesi. Quando $u_{i,t} = 0$ la disuguaglianza è soddisfatta
+banalmente. Il vincolo viene generato solo se $a_i \ge 2$, perché per $a_i = 1$ sarebbe
+ridondante.
+
+\paragraph{Durata massima consecutiva.} Nessuna finestra di $b_i + 1$ slot consecutivi può essere
+interamente accesa, il che equivale a limitare a $b_i$ la lunghezza di ogni ciclo:
+\begin{equation}
+  \sum_{\tau=t}^{t+b_i} x_{i,\tau} \;\le\; b_i
+  \qquad \forall t \in [0,\, T-b_i-1].
+  \label{eq:durata-max}
+\end{equation}
+
+\paragraph{Dominio.}
+\begin{equation}
+  x_{i,t},\, u_{i,t},\, \dw_{i,t} \in \{0,1\},
+  \qquad \ep_t,\, \en_t \ge 0,
+  \qquad x_{i,t} = u_{i,t} = \dw_{i,t} = 0 \;\; \forall t \notin \Vset .
+\end{equation}
+
+\section{Livelli multipli di potenza --- \code{cvxpy\_activation}}
+\label{sec:m2}
+
+\noindent\textbf{Sorgente:} \code{approach\_cvxpy\_activation.py} $\rightarrow$ \code{constrained\_highs\_multistate}\\
+\textbf{Always-on:} baseline sottratta\\
+\textbf{Livelli di potenza:} 3
+
+Il modello base assume che un apparecchio assorba sempre esattamente $p_i$ watt, il che è
+irrealistico. Questo modello introduce i tre livelli della~\eqref{eq:livelli}.
+
+\subsection*{Variabile aggiuntiva e vincolo di collegamento}
+
+Si aggiunge $z_{i,t,k} \in \{0,1\}$, che vale 1 se il device $i$ opera al livello $k$ nello slot
+$t$, e si lega all'indicatore di accensione:
+\begin{equation}
+  x_{i,t} \;-\; \sum_{k=0}^{K-1} z_{i,t,k} \;=\; 0
+  \qquad \forall i,\; \forall t .
+  \label{eq:link}
+\end{equation}
+
+\begin{notebox}{Perché non serve un vincolo di mutua esclusione}
+Poiché $x_{i,t}$ è binaria, la~\eqref{eq:link} impone che la somma delle $z$ valga 0 oppure 1:
+\textbf{al più un livello può essere attivo}, automaticamente. Non è necessario dichiarare un
+insieme SOS o aggiungere vincoli di esclusione, e questo mantiene il modello più snello.
+\end{notebox}
+
+La~\eqref{eq:link} ha una seconda funzione, altrettanto importante: $x_{i,t}$ resta l'indicatore
+aggregato di accensione, quindi \textbf{tutti i vincoli di transizione e durata del
+paragrafo~\ref{sec:m1} continuano a operare invariati} su di esso, senza doverli riscrivere in
+termini di $z$.
+
+\subsection*{Ricostruzione aggiornata}
+
+L'unica altra modifica riguarda il vincolo~\eqref{eq:ricostruzione-base}, dove la potenza non è
+più fissa:
+\begin{equation}
+  \sum_{i} \sum_{k} p_{i,k} \, z_{i,t,k} \;-\; \ep_t \;+\; \en_t \;=\; y_t
+  \qquad \forall t \in \Vset .
+\end{equation}
+
+La potenza restituita in uscita è quella effettivamente stimata,
+$\sum_k p_{i,k} z_{i,t,k}$, e non più il valore nominale.
+
+\section{Apparecchi sempre accesi come variabili --- \code{cvxpy\_full}}
+\label{sec:m3}
+
+\noindent\textbf{Sorgente:} \code{approach\_cvxpy\_full.py} $\rightarrow$ \code{constrained\_highs\_full}\\
+\textbf{Always-on:} modellati come variabili, nessuna baseline
+
+Questo modello elimina il passo~1 della pipeline. Gli apparecchi si dividono in due gruppi con
+trattamento diverso.
+
+\subsection*{Apparecchi sempre accesi}
+
+Si introduce $z^{\text{ao}}_{j,t,k}$ con il vincolo di \textbf{attività permanente}:
+\begin{equation}
+  \sum_{k=0}^{K-1} z^{\text{ao}}_{j,t,k} \;=\; 1
+  \qquad \forall j,\; \forall t \in \Vset .
+  \label{eq:always-on}
+\end{equation}
+
+Si noti che è un'\textbf{uguaglianza}, non una disuguaglianza: l'apparecchio deve trovarsi in uno
+dei tre livelli in ogni istante valido, e non può spegnersi. Non ha variabili di transizione né
+vincoli di durata o di fascia oraria, perché non ha cicli.
+
+\subsection*{Apparecchi a ciclo}
+
+Identici al paragrafo~\ref{sec:m2}: variabili $z^{\text{ev}}$, $x^{\text{ev}}$, $u^{\text{ev}}$,
+$\dw^{\text{ev}}$ con l'intero corredo di vincoli.
+
+\subsection*{Ricostruzione congiunta}
+
+\begin{equation}
+  \sum_{j} \sum_{k} p^{\text{ao}}_{j,k} \, z^{\text{ao}}_{j,t,k}
+  \;+\;
+  \sum_{i} \sum_{k} p_{i,k} \, z^{\text{ev}}_{i,t,k}
+  \;-\; \ep_t \;+\; \en_t \;=\; y_t
+  \qquad \forall t \in \Vset ,
+\end{equation}
+dove $y_t$ è ora il segnale \textbf{aggregato grezzo} e non più il residuo.
+
+\begin{warnbox}{Limite strutturale}
+Il vincolo~\eqref{eq:always-on} è un'uguaglianza, quindi gli apparecchi sempre accesi assorbono
+per costruzione almeno $\sum_j p^{\text{ao}}_j (1-\delta)$ watt in ogni istante. Se il questionario
+dichiara apparecchi la cui somma supera il consumo medio effettivo dell'abitazione, \textbf{il
+modello sovrastima necessariamente} e il residuo diventa negativo.
+
+Il caso è stato osservato su un'abitazione reale del campione: $325\unit{W}$ dichiarati
+(due frigoriferi e un congelatore) contro un segnale medio di $159\unit{W}$, con un errore
+sull'energia totale del $119\%$. Non è un problema di risoluzione ma di coerenza fra
+questionario e misura, ed è discusso nel capitolo~\ref{ch:limiti}.
+\end{warnbox}
+
+\section{Durata flessibile --- \code{cvxpy\_soft\_duration}}
+\label{sec:m4}
+
+\noindent\textbf{Sorgente:} \code{approach\_cvxpy\_soft\_duration.py}
+
+\subsection*{Il problema da risolvere}
+
+Le durate dichiarate nel questionario sono approssimative. Con i vincoli rigidi
+\eqref{eq:durata-min} e \eqref{eq:durata-max}, un apparecchio la cui potenza combacia esattamente
+con un plateau osservato viene comunque rifiutato se il plateau dura poco più del massimo
+dichiarato.
+
+\begin{center}
+\begin{minipage}{0.9\textwidth}
+\itshape
+Esempio reale: lavatrice con massimo dichiarato di 2 ore, plateau misurato di 2 ore e 15 minuti.
+Il modello rigido copre 8 slot su 9 e lascia 15 minuti di consumo inspiegati, pur avendo a
+disposizione l'apparecchio giusto.
+\end{minipage}
+\end{center}
+
+\subsection*{Formulazione con variabili di scarto}
+
+Le stesse righe di vincolo vengono rilassate aggiungendo una variabile di scarto non negativa:
+\begin{align}
+  \sum_{\tau=t}^{t+a_i-1} x_{i,\tau} \;+\; s^{-}_{i,t} \;-\; a_i \, u_{i,t} &\;\ge\; 0,
+  & s^{-}_{i,t} &\ge 0 \label{eq:soft-min}\\
+  \sum_{\tau=t}^{t+b_i} x_{i,\tau} \;-\; s^{+}_{i,t} &\;\le\; b_i,
+  & s^{+}_{i,t} &\ge 0 \label{eq:soft-max}
+\end{align}
+con il termine di costo
+\begin{equation}
+  + \sum_{i} \sum_{t} \lambda_d \, p_i \, \bigl( s^{-}_{i,t} + s^{+}_{i,t} \bigr).
+\end{equation}
+
+\begin{notebox}{Il costo risulta proporzionale allo sforamento senza doverlo imporre}
+Si consideri un ciclo di lunghezza $L > b_i$. Le finestre di ampiezza $b_i+1$ interamente
+contenute nel ciclo sono esattamente $L - b_i$, e ciascuna richiede $s^{+} \ge 1$ per essere
+soddisfatta. Il costo complessivo è quindi
+\begin{equation*}
+  \lambda_d \, p_i \, (L - b_i),
+\end{equation*}
+\textbf{lineare nello sforamento}. Simmetricamente un ciclo più corto di $a_i$ paga
+$\lambda_d \, p_i \, (a_i - L)$. La proporzionalità emerge dalla struttura combinatoria dei
+vincoli, non da una costruzione ad hoc.
+
+Nell'esempio della lavatrice, uno sforamento di un solo slot costa $\lambda_d \, p_i$: abbastanza
+poco da essere accettato se spiega meglio il segnale.
+\end{notebox}
+
+Il costo computazionale è trascurabile: si aggiungono due variabili \textbf{continue} per coppia
+(device, slot), nessuna variabile binaria. La difficoltà del MILP resta sostanzialmente invariata.
+
+\subsection*{Budget giornaliero (opzionale)}
+
+Un secondo termine, disattivato per impostazione predefinita, penalizza lo scostamento del monte
+ore giornaliero dall'attesa del questionario:
+\begin{equation}
+  E_i = \frac{\text{frequenza settimanale}}{7} \cdot \frac{\code{dur\_typical\_min}}{g},
+  \qquad
+  \sum_{t} x_{i,t} \;-\; d^{+}_i \;+\; d^{-}_i \;=\; E_i ,
+\end{equation}
+con costo $+\sum_i \lambda_D \, p_i (d^{+}_i + d^{-}_i)$.
+
+A differenza dello scarto per ciclo questo termine è \textbf{globale}: non distingue un ciclo
+lungo da molti cicli brevi. Sulle abitazioni del campione peggiorava leggermente l'errore di
+ricostruzione, per cui nei modelli successivi il valore predefinito è $\lambda_D = 0$.
+
+\begin{notebox}{Origine del limite superiore}
+Nel modello rigido $b_i$ derivava da $\code{dur\_typical\_min} \times 1.5$. Qui, essendo diventato
+un limite flessibile, si usa il valore \code{duration\_minutes\_max} dichiarato esplicitamente
+dall'utente quando disponibile: ha senso usare il dato dichiarato ora che è possibile
+oltrepassarlo pagandone il costo.
+\end{notebox}
+
+\section{Quota settimanale di utilizzi --- \code{cvxpy\_weekly\_quota}}
+\label{sec:m5}
+
+\noindent\textbf{Sorgente:} \code{approach\_cvxpy\_weekly\_quota.py}
+
+Il questionario dichiara quante volte alla settimana ogni apparecchio viene usato. Questo modello
+trasforma quel dato in un \textbf{budget scorrevole}: se la lavatrice è dichiarata due volte a
+settimana e ne sono già state attribuite due, la terza accensione costa molto di più.
+
+\subsection*{Il contatore non può essere una variabile}
+
+Poiché ogni giorno è un modello indipendente (passo~3 della pipeline), il conteggio settimanale
+\textbf{non può essere rappresentato da una variabile}: è uno stato che attraversa i solve.
+La procedura è quindi ibrida.
+
+\begin{modelbox}{Propagazione del contatore fra i giorni}
+\begin{enumerate}[nosep,leftmargin=1.6em]
+  \item i giorni vengono elaborati in ordine cronologico;
+  \item il contatore si azzera al cambio di settimana ISO, cioè ogni lunedì;
+  \item la quota residua $r_i$ entra nel modello del giorno come \textbf{costante};
+  \item risolto il modello, si contano i fronti di salita nella soluzione e si aggiorna il
+        contatore per il giorno successivo.
+\end{enumerate}
+\end{modelbox}
+
+\subsection*{Dentro il modello: solo l'eccedenza}
+
+Serve una sola variabile continua per apparecchio:
+\begin{equation}
+  \sum_{t} u_{i,t} \;-\; e_i \;\le\; r_i ,
+  \qquad e_i \ge 0 ,
+  \label{eq:quota}
+\end{equation}
+con costo $+\sum_i \lambda_{q,i} \, p_i \, e_i$.
+
+Il meccanismo è immediato: finché il numero di accensioni resta entro $r_i$ la variabile $e_i$ vale
+zero e non costa nulla; oltre quella soglia $e_i$ misura esattamente l'eccedenza. Le prime $r_i$
+accensioni pagano quindi solo $\lambda_a$, quelle successive pagano anche il sovrapprezzo. Con
+$r_i = 0$, cioè a quota esaurita, ogni accensione del giorno lo paga.
+
+\subsection*{Il sovrapprezzo deve essere calibrato per apparecchio}
+
+Il punto di pareggio di questo termine \textbf{non è 1}, a differenza degli altri. Spiegare
+un'attivazione di un apparecchio che resta acceso $s_i$ slot fa guadagnare circa $s_i \cdot p_i$ di
+errore di ricostruzione, quindi il sovrapprezzo deve superare quel valore per avere effetto:
+\begin{equation}
+  \lambda_{q,i} \;=\; \code{over\_activation\_factor} \times s_i ,
+  \qquad s_i = \frac{\code{dur\_typical\_min}}{g} .
+  \label{eq:quota-calibrazione}
+\end{equation}
+
+Con \code{over\_activation\_factor} $= 1.5$ la forza effettiva è la stessa per un ciclo di
+microonde da 15 minuti e per uno di lavatrice da due ore. Un coefficiente scalare unico sarebbe
+inevitabilmente mal calibrato: gli apparecchi del campione hanno durate tipiche che variano di un
+fattore otto.
+
+\begin{warnbox}{Allocazione greedy della quota}
+Risolvendo un giorno alla volta, la quota viene spesa in modo \emph{greedy}: un giorno iniziale la
+consuma liberamente e i giorni successivi della stessa settimana ne pagano le conseguenze.
+Distribuirla in modo ottimo richiederebbe risolvere i sette giorni congiuntamente, con un costo
+computazionale molto maggiore. La versione greedy evita comunque l'esito implausibile
+``lavatrice accesa tutti i giorni'', che è lo scopo del vincolo.
+\end{warnbox}
+
+\section{Prior completi del questionario --- \code{cvxpy\_survey\_prior}}
+\label{sec:m6}
+
+\noindent\textbf{Sorgente:} \code{approach\_cvxpy\_survey\_prior.py} --- \textbf{versione in uso}
+
+Estende il modello precedente con due termini che colmano altrettante lacune nell'uso del
+questionario.
+
+\subsection*{Stagionalità}
+
+Il campo \code{active\_months}, che indica in quali mesi l'apparecchio viene usato, era raccolto
+dal questionario ma \textbf{non veniva letto da alcun modello di ottimizzazione}. Un
+climatizzatore dichiarato attivo da giugno a settembre era quindi libero di spiegare un plateau di
+dicembre.
+
+\begin{equation}
+  + \sum_{i} \sum_{\substack{t \in \Vset \\ \text{mese}(t) \notin \mathcal{M}_i}}
+    \lambda_s \, p_i \, x_{i,t} ,
+  \label{eq:stagione}
+\end{equation}
+dove $\mathcal{M}_i$ è l'insieme dei mesi dichiarati. Con $\lambda_s = 8$ l'apparecchio è di fatto
+rimosso fuori stagione, ma la penalità resta \textbf{flessibile}: un'evidenza schiacciante nel
+segnale può ancora prevalere, coerentemente con il principio guida del documento.
+
+\subsection*{Specificità della fascia oraria}
+
+Un apparecchio che non aveva dichiarato alcuna fascia oraria \textbf{non pagava nulla, in nessun
+momento della giornata}: era un jolly gratuito, capace di assorbire qualsiasi plateau a
+qualsiasi ora. Contemporaneamente un apparecchio \emph{dentro} la propria fascia dichiarata pagava
+anch'esso zero. I due pareggiavano e la scelta fra loro era arbitraria.
+
+La correzione \textbf{non} consiste nel punire chi non ha un orario: molti apparecchi
+legittimamente non ne hanno, e l'assenza di dichiarazione è assenza di informazione, non evidenza
+di implausibilità. Si legge invece ``nessuna fascia'' come \textbf{``fascia di 24 ore''} e si
+penalizza quanto poco la dichiarazione restringa il campo. La formulazione completa è nel
+capitolo~\ref{ch:fattore}.
+
+\subsection*{Il modello completo}
+
+\begin{modelbox}{Funzione obiettivo della versione in uso}
+\begin{align*}
+  \min \;\;
+  & \sum_{t \in \Vset} \bigl( \ep_t + \en_t \bigr)
+  && \text{errore di ricostruzione} \\
+  + \; & \sum_{i} \sum_{t \in \Vset} \lambda_w \, p_i \, f_i(t) \, x_{i,t}
+  && \text{fascia oraria e specificità} \\
+  + \; & \sum_{i} \sum_{t \in \Vset} \lambda_a \, p_i \, u_{i,t}
+  && \text{numero di accensioni} \\
+  + \; & \sum_{i} \sum_{t} \lambda_d \, p_i \bigl( s^{-}_{i,t} + s^{+}_{i,t} \bigr)
+  && \text{durata dei cicli} \\
+  + \; & \sum_{i} \lambda_D \, p_i \bigl( d^{+}_i + d^{-}_i \bigr)
+  && \text{monte ore giornaliero} \\
+  + \; & \sum_{i} \lambda_{q,i} \, p_i \, e_i
+  && \text{quota settimanale} \\
+  + \; & \sum_{i} \sum_{\text{fuori stagione}} \lambda_s \, p_i \, x_{i,t}
+  && \text{stagionalità}
+\end{align*}
+\end{modelbox}
+
+soggetta ai vincoli \eqref{eq:ricostruzione-base}--\eqref{eq:durata-max} nella forma estesa agli
+apparecchi sempre accesi \eqref{eq:always-on}, con le durate rilassate
+\eqref{eq:soft-min}--\eqref{eq:soft-max} e la quota settimanale \eqref{eq:quota}.
+
+\section{Quadro riassuntivo}
+
+\begin{center}
+\begin{tabular}{@{}l c c c c c c@{}}
+\toprule
+\textbf{Modello} & \textbf{Always-on} & \textbf{Livelli} & \textbf{Durata} & \textbf{Quota}
+& \textbf{Stagione} & \textbf{Specificità} \\
+\midrule
+\code{cvxpy}                & baseline  & 1 & rigida & --- & --- & --- \\
+\code{cvxpy\_activation}    & baseline  & 3 & rigida & --- & --- & --- \\
+\code{cvxpy\_full}          & variabili & 3 & rigida & --- & --- & --- \\
+\code{cvxpy\_soft\_duration}& variabili & 3 & flessibile & --- & --- & --- \\
+\code{cvxpy\_weekly\_quota} & variabili & 3 & flessibile & \checkmark & --- & --- \\
+\textbf{\code{cvxpy\_survey\_prior}} & variabili & 3 & flessibile & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Le varianti con suffisso \code{\_30min}, \code{\_max} e \code{\_median} modificano soltanto la
+granularità temporale o la funzione di aggregazione del ricampionamento, non la formulazione.
