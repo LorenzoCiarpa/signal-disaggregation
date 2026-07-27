@@ -1,13 +1,13 @@
 """
 Day-wise HiGHS L1-MILP NILM with the survey's timing priors fully applied.
 
-Free-solver mirror of approach_gurobi_survey_prior.  Builds on approach_cvxpy_weekly_quota and closes two gaps in how the questionnaire
+Builds on approach_highs_weekly_quota and closes two gaps in how the questionnaire
 was being used.
 
 Seasonality
 -----------
-`active_months` was collected by the survey but ignored by every solver: only the
-FHMM/HSMM approaches read it.  An air conditioner declared active June-September was
+`active_months` was collected by the survey but, until this approach, ignored by the
+optimisation model.  An air conditioner declared active June-September was
 therefore free to explain a December plateau.  Out-of-season slots now carry a heavy
 penalty, so the device effectively disappears outside its season while overwhelming
 evidence can still override the questionnaire.

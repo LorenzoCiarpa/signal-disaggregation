@@ -1,0 +1,74 @@
+\chapter{Parametri e taratura}
+\label{ch:parametri}
+
+\section{Quadro completo dei parametri}
+
+Valori predefiniti della versione in uso, \code{highs\_survey\_prior}.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l r X@{}}
+\toprule
+\textbf{Parametro} & \textbf{Default} & \textbf{Effetto} \\
+\midrule
+\multicolumn{3}{@{}l}{\itshape\color{CorpGray} Discretizzazione} \\
+\code{granularity\_min} & 15 & ampiezza dello slot in minuti; principale leva sul costo computazionale \\
+\code{resample\_method} & \code{mean} & funzione di aggregazione nel ricampionamento \\
+\code{time\_limit} & 60 & budget del solver per ciascun giorno, in secondi \\
+\addlinespace
+\multicolumn{3}{@{}l}{\itshape\color{CorpGray} Modello di potenza} \\
+\code{power\_level\_variation} ($\delta$) & 0.15 & scarto dei livelli basso e alto dal valore tipico \\
+\addlinespace
+\multicolumn{3}{@{}l}{\itshape\color{CorpGray} Penalità temporali} \\
+\code{time\_window\_penalty} ($\lambda_w$) & 1.0 & peso della penalità di fascia oraria \\
+\code{window\_penalty\_ramp\_min} ($\rho$) & 60 & minuti di distanza che aggiungono 1 al fattore \\
+\code{window\_penalty\_max\_factor} ($F_{\max}$) & 6.0 & saturazione del termine di distanza \\
+\code{window\_vagueness\_weight} ($w$) & 0.2 & peso del pavimento di genericità \\
+\code{season\_penalty} ($\lambda_s$) & 8.0 & costo per slot fuori dai mesi dichiarati \\
+\addlinespace
+\multicolumn{3}{@{}l}{\itshape\color{CorpGray} Penalità di utilizzo} \\
+\code{activation\_penalty} ($\lambda_a$) & 1.0 & costo per ogni accensione \\
+\code{duration\_penalty\_block} ($\lambda_d$) & 0.5 & costo per slot di scostamento dalla durata \\
+\code{duration\_penalty\_daily} ($\lambda_D$) & 0.0 & budget sul monte ore giornaliero (disattivato) \\
+\code{over\_activation\_factor} & 1.5 & moltiplicatore del punto di pareggio della quota \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Punti di pareggio}
+
+Riepilogo dell'interpretazione dei coefficienti, discussa in dettaglio nel
+capitolo~\ref{ch:obiettivo}.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Coefficiente} & \textbf{Pareggio} & \textbf{Significato del pareggio} \\
+\midrule
+$\lambda_w$ & 1.0 & un'attivazione fuori fascia costa quanto non spiegare $p_i$ per uno slot \\
+$\lambda_a$ & 1.0 & un'accensione in più costa quanto uno slot acceso a segnale nullo \\
+$\lambda_d$ & 1.0 & uno slot di sforamento costa quanto uno slot inspiegato \\
+$\lambda_D$ & 1.0 & uno slot di scarto dal monte ore costa quanto uno slot inspiegato \\
+$\lambda_{q,i}$ & $s_i$ & \textbf{eccezione}: il pareggio è la durata tipica del ciclo in slot \\
+$\lambda_s$ & 1.0 & impostato a 8 di proposito, ben oltre il pareggio \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Osservazioni sperimentali}
+
+\subsection{La penalità di fascia oraria è troppo forte al valore predefinito}
+
+Con $\lambda_w = 1$ la penalità di fascia eguaglia esattamente il costo di lasciare il consumo
+inspiegato. In queste condizioni il modello, indifferente fra le due opzioni, non attiva mai
+l'apparecchio fuori fascia: il vincolo formalmente flessibile si comporta come rigido.
+
+L'effetto è stato osservato direttamente in una prova controllata: con $\lambda_w = 1$ un
+apparecchio non veniva attivato in alcun punto della giornata. Riducendo il coefficiente a $0.3$ il
+comportamento diventa quello atteso --- attivazione dentro e appena fuori dalla fascia, rifiuto a
+grande distanza.
+
+\begin{notebox}{Raccomandazione}
+Per i modelli con obiettivo $L_1$ si consiglia $\lambda_w$ nell'intervallo $0.2$--$0.4$. Il valore
+predefinito di $1.0$ è ereditato dai modelli quadratici, dove la scala delle penalità è diversa, e
+in questo contesto risulta eccessivo.
+\end{notebox}

@@ -1,0 +1,71 @@
+\chapter{La pipeline di elaborazione}
+\label{ch:pipeline}
+
+Il modello segue una sequenza di elaborazione in tre passi. Gli apparecchi sempre accesi
+--- frigoriferi e congelatori, che non hanno cicli di accensione riconoscibili --- non richiedono
+un passo di baseline dedicato: entrano direttamente nel modello come variabili, e il solver
+ottimizza simultaneamente il loro livello di assorbimento e le attivazioni degli altri apparecchi
+(capitolo~\ref{ch:modelli}). Non esiste quindi una stima di baseline da sottrarre: il solver lavora
+sul segnale aggregato grezzo, evitando che una baseline stimata male distorca tutto ciò che segue.
+
+\section{I tre passi}
+
+\subsection*{Passo 1 --- Ricampionamento}
+
+Il segnale a un minuto viene aggregato a slot di ampiezza $g$ (default 15 minuti) usando una
+funzione di aggregazione configurabile (media, massimo, minimo o mediana; il default è la media).
+
+La granularità è il principale parametro di costo computazionale: il numero di variabili binarie
+cresce linearmente con $T$, e il tempo di risoluzione di un MILP cresce molto più rapidamente.
+Passare da 15 a 30 minuti dimezza $T$ e rende il problema sensibilmente più facile, al prezzo di
+non poter più distinguere eventi di durata inferiore alla mezz'ora.
+
+\subsection*{Passo 2 --- Ottimizzazione giorno per giorno}
+
+Per ciascun giorno si costruisce e si risolve un MILP \textbf{indipendente}, con un budget di
+tempo di \code{time\_limit} secondi (default 60).
+
+La scelta di separare i giorni è dettata dalla complessità: un modello su 15 giorni avrebbe 15
+volte le variabili e sarebbe fuori portata. Ha però una conseguenza strutturale importante,
+discussa nel capitolo~\ref{ch:modelli}: \textbf{qualunque grandezza che debba propagarsi da un
+giorno all'altro non può essere una variabile del modello}. È il caso della quota settimanale di
+accensioni, che deve essere passata come costante e aggiornata all'esterno del solver.
+
+\subsection*{Passo 3 --- Ricostruzione alla risoluzione originale}
+
+La soluzione, definita sugli slot da $g$ minuti, viene riportata sull'indice a un minuto per
+propagazione in avanti dell'ultimo valore noto, così da poter essere confrontata con il segnale
+originale e sommata sull'intero periodo per il calcolo dei consumi in kWh.
+
+\section{Selezione del periodo di analisi}
+
+I modelli non vengono applicati all'intero storico disponibile ma a un campione di
+\textbf{15 giorni per abitazione}, organizzati in 3 blocchi da 5 giorni consecutivi.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Criterio} & \textbf{Motivazione} \\
+\midrule
+Blocchi identici per tutte le abitazioni
+& I blocchi sono estratti dai giorni presenti in \emph{tutti} i segnali, così le differenze fra
+  case riflettono la casa e non il periodo osservato. \\
+\addlinespace
+Estrazione casuale ma riproducibile
+& L'estrazione usa un seme fisso: rieseguire l'analisi produce gli stessi blocchi. \\
+\addlinespace
+Esclusione delle festività
+& Nessun blocco può cadere fra il 22 dicembre e il 6 gennaio: i consumi di Natale, Capodanno ed
+  Epifania non sono rappresentativi dell'uso ordinario. \\
+\addlinespace
+Blocchi distanziati
+& Si impone una distanza minima fra gli inizi dei blocchi, per evitare che si addensino nello
+  stesso periodo e per campionare condizioni diverse. \\
+\addlinespace
+Blocchi risolti separatamente
+& I risultati vengono concatenati solo alla fine. Concatenare i segnali \emph{prima} del
+  ricampionamento farebbe generare migliaia di slot vuoti negli intervalli fra un blocco e
+  l'altro. \\
+\bottomrule
+\end{tabularx}
+\end{center}

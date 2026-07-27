@@ -1,18 +1,15 @@
 """
 highs_methods.py — L1-MILP NILM disaggregation via HiGHS (free, no license).
 
-Drop-in replacement for gurobi_methods (solve_activation / solve_full).
-Uses HiGHS directly via `highspy` — no CVXPY overhead, no C-level malloc crash.
+Builds and solves the day-wise NILM models directly via `highspy`.
 
 Problem class: Mixed-Integer Linear Programming (MILP)
   Objective: L1 reconstruction error (sum of absolute errors) + linear penalties
-  Constraints: identical to Gurobi v6 — transitions, min/max ON, time windows
+  Constraints: transitions, min/max ON, time windows
 
-Why L1 instead of L2 (unlike Gurobi):
-  HiGHS handles only LP/MILP, not MIQP.  L1 avoids the quadratic objective
-  while yielding comparable NILM results (often more robust to spike noise).
-  L2 would require either SCIP (which malloc-crashed via CVXPY) or explicit
-  bilinear linearization (~22k aux vars for n=7, K=3, T=96).
+Why L1:
+  HiGHS handles only LP/MILP, not MIQP.  L1 avoids a quadratic objective while
+  yielding comparable NILM results (often more robust to spike noise).
 
 Required installation (already present in this environment):
     pip install highspy
@@ -121,7 +118,7 @@ def constrained_highs(
             Set to 0 (default) for v4 behaviour; > 0 for v6 behaviour.
 
     Returns:
-        (disaggregation, info) same format as gurobi_methods functions.
+        (disaggregation, info): the per-device power series and solver metadata.
     """
     if not _HAS_HIGHS:
         raise ImportError(_INSTALL_MSG)

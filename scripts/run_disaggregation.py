@@ -26,19 +26,7 @@ from scripts.nilm.preprocessing import (
     load_imei_plateau_median,
 )
 from scripts.nilm.devices import get_device_profiles
-from scripts.nilm import approach_fhmm_survey
-from scripts.nilm import approach_gurobi_activation
-from scripts.nilm import approach_gurobi_full
-from scripts.nilm import approach_gurobi_soft_duration
-from scripts.nilm import approach_gurobi_weekly_quota
-from scripts.nilm import approach_gurobi_survey_prior
-from scripts.nilm import approach_cvxpy
-from scripts.nilm import approach_cvxpy_activation
-from scripts.nilm import approach_cvxpy_full
-from scripts.nilm import approach_cvxpy_soft_duration
-from scripts.nilm import approach_cvxpy_weekly_quota
-from scripts.nilm import approach_cvxpy_survey_prior
-from scripts.nilm import approach_hsmm_survey
+from scripts.nilm import approach_highs_survey_prior
 from scripts.nilm.output import save_results
 from scripts.nilm.benchmark import run_benchmark
 
@@ -164,64 +152,10 @@ def _select_day_blocks(available_days, n_blocks, block_days, seed):
     )
 
 APPROACH_MAP = {
-    # ---- FHMM / HSMM with survey priors (pure numpy, no solver needed) ----
-    "fhmm_survey": _PartialApproach(approach_fhmm_survey, baseline_mode="peak"),
-    "hsmm_survey": approach_hsmm_survey,
-    "hsmm_survey_30min": _PartialApproach(approach_hsmm_survey, granularity_min=30),
-    # ---- Gurobi MIQP: 3 power levels, activation + soft time-window penalty ----
-    # baseline-subtracted signal, 15 min
-    "gurobi_activation": approach_gurobi_activation,
-    "gurobi_activation_max": _PartialApproach(approach_gurobi_activation, resample_method="max"),
-    "gurobi_activation_median": _PartialApproach(approach_gurobi_activation, resample_method="median"),
-    # same at 30-minute granularity
-    "gurobi_activation_30min": _PartialApproach(approach_gurobi_activation, granularity_min=30),
-    "gurobi_activation_30min_max": _PartialApproach(approach_gurobi_activation, granularity_min=30, resample_method="max"),
-    "gurobi_activation_30min_median": _PartialApproach(approach_gurobi_activation, granularity_min=30, resample_method="median"),
-    # always-on devices as multistate variables (no baseline subtraction) — 15 min
-    "gurobi_full": approach_gurobi_full,
-    "gurobi_full_max": _PartialApproach(approach_gurobi_full, resample_method="max"),
-    "gurobi_full_median": _PartialApproach(approach_gurobi_full, resample_method="median"),
-    # same at 30-minute granularity
-    "gurobi_full_30min": _PartialApproach(approach_gurobi_full, granularity_min=30),
-    "gurobi_full_30min_max": _PartialApproach(approach_gurobi_full, granularity_min=30, resample_method="max"),
-    "gurobi_full_30min_median": _PartialApproach(approach_gurobi_full, granularity_min=30, resample_method="median"),
-    # soft duration: min/max ON penalised instead of enforced (survey as prior, not veto)
-    "gurobi_soft_duration": approach_gurobi_soft_duration,
-    "gurobi_soft_duration_30min": _PartialApproach(approach_gurobi_soft_duration, granularity_min=30),
-    # block penalty only, no daily budget
-    "gurobi_soft_duration_block": _PartialApproach(approach_gurobi_soft_duration, duration_penalty_daily=0.0),
-    # weekly quota: survey usage frequency as a running weekly budget, reset each Monday
-    "gurobi_weekly_quota": approach_gurobi_weekly_quota,
-    "gurobi_weekly_quota_30min": _PartialApproach(approach_gurobi_weekly_quota, granularity_min=30),
-    # survey_prior: adds seasonality (active_months) and window-specificity weighting
-    "gurobi_survey_prior": approach_gurobi_survey_prior,
-    "gurobi_survey_prior_30min": _PartialApproach(approach_gurobi_survey_prior, granularity_min=30),
-    # ---- Free-solver equivalents (HiGHS, L1-MILP) ----
-    # cvxpy: binary ON/OFF, baseline-subtracted
-    "cvxpy": approach_cvxpy,
-    "cvxpy_max": _PartialApproach(approach_cvxpy, resample_method="max"),
-    "cvxpy_median": _PartialApproach(approach_cvxpy, resample_method="median"),
-    "cvxpy_30min": _PartialApproach(approach_cvxpy, granularity_min=30),
-    # cvxpy_activation: 3 power levels + activation penalty — mirrors gurobi_activation
-    "cvxpy_activation": approach_cvxpy_activation,
-    "cvxpy_activation_max": _PartialApproach(approach_cvxpy_activation, resample_method="max"),
-    "cvxpy_activation_median": _PartialApproach(approach_cvxpy_activation, resample_method="median"),
-    "cvxpy_activation_30min": _PartialApproach(approach_cvxpy_activation, granularity_min=30),
-    # cvxpy_full: always-on as variables, no baseline — mirrors gurobi_full
-    "cvxpy_full": approach_cvxpy_full,
-    "cvxpy_full_max": _PartialApproach(approach_cvxpy_full, resample_method="max"),
-    "cvxpy_full_median": _PartialApproach(approach_cvxpy_full, resample_method="median"),
-    "cvxpy_full_30min": _PartialApproach(approach_cvxpy_full, granularity_min=30),
-    # cvxpy_soft_duration: mirror of gurobi_soft_duration on the free solver
-    "cvxpy_soft_duration": approach_cvxpy_soft_duration,
-    "cvxpy_soft_duration_30min": _PartialApproach(approach_cvxpy_soft_duration, granularity_min=30),
-    "cvxpy_soft_duration_block": _PartialApproach(approach_cvxpy_soft_duration, duration_penalty_daily=0.0),
-    # cvxpy_weekly_quota: mirror of gurobi_weekly_quota on the free solver
-    "cvxpy_weekly_quota": approach_cvxpy_weekly_quota,
-    "cvxpy_weekly_quota_30min": _PartialApproach(approach_cvxpy_weekly_quota, granularity_min=30),
-    # cvxpy_survey_prior: mirror of gurobi_survey_prior on the free solver
-    "cvxpy_survey_prior": approach_cvxpy_survey_prior,
-    "cvxpy_survey_prior_30min": _PartialApproach(approach_cvxpy_survey_prior, granularity_min=30),
+    # ---- HiGHS L1-MILP (free solver, no license) ----
+    # highs_survey_prior: adds seasonality (active_months) and window-specificity weighting
+    "highs_survey_prior": approach_highs_survey_prior,
+    "highs_survey_prior_30min": _PartialApproach(approach_highs_survey_prior, granularity_min=30),
 }
 
 
@@ -254,7 +188,7 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Show solver output per day (HiGHS, HSMM, etc.)",
+        help="Show HiGHS solver output per day",
     )
     parser.add_argument(
         "--json-dir",
