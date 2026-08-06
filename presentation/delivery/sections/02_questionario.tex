@@ -1,0 +1,247 @@
+\chapter{Il questionario: la webapp di raccolta dati}
+\label{ch:questionario}
+
+Tutta l'informazione a priori che rende trattabile la disaggregazione arriva dal questionario.
+Per raccoglierla è stata sviluppata una \textbf{applicazione web dedicata}, che sostituisce la
+compilazione manuale su foglio di calcolo usata in precedenza. Questo capitolo descrive che cosa
+viene chiesto al cliente, come è organizzata l'intervista e in che forma i dati arrivano al
+modello di ottimizzazione.
+
+\section{Perché una webapp e non un modulo statico}
+
+Il questionario precedente era un elenco fisso di elettrodomestici: una riga per
+\emph{tipologia}, con il numero di esemplari posseduti. Tre limiti lo rendevano insufficiente.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Limite} & \textbf{Conseguenza sul modello} \\
+\midrule
+Elenco chiuso di tipologie
+& Un apparecchio non previsto dall'elenco non era dichiarabile e finiva nel rumore $\eta(t)$
+  della~\eqref{eq:modello-misura}. \\
+\addlinespace
+Una riga per tipologia
+& Due climatizzatori erano costretti a condividere fasce orarie e consumi, anche se uno sta in
+  camera e l'altro in salotto e vengono usati in momenti opposti della giornata. \\
+\addlinespace
+Nessuna potenza dichiarata
+& La potenza $P_i$ veniva presa da valori di letteratura per tipologia, senza alcuna
+  possibilità di correzione sul singolo apparecchio. \\
+\addlinespace
+Domande non utilizzate
+& Superficie, anno di costruzione, tipo di riscaldamento, numero di occupanti: dati raccolti
+  ma mai letti da nessun modello, che allungavano l'intervista senza aggiungere informazione. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+La webapp risolve i primi tre punti e rimuove il quarto: l'intervista è più corta e chiede
+solo grandezze che entrano effettivamente nella funzione obiettivo.
+
+\begin{notebox}{Il cambio strutturale: istanze, non tipologie}
+Nel nuovo schema l'elenco dei dispositivi è una \textbf{lista di istanze indipendenti}: ogni
+apparecchio fisico presente in casa è una voce a sé, con la propria etichetta
+(\code{Camera}, \code{Garage}), le proprie potenze e i propri orari. Un'abitazione con due
+frigoriferi e tre climatizzatori dichiara cinque istanze distinte, non due righe con un contatore.
+\end{notebox}
+
+\section{Come si svolge l'intervista}
+
+L'applicazione è realizzata in Python con Streamlit (\code{questionnaire/app.py}) e si compila da
+browser, senza installazione lato cliente. Il flusso è in tre fasi.
+
+\subsection*{Fase 1 --- Dati della casa}
+
+Si identifica l'abitazione tramite l'\code{IMEI} del dispositivo IoT che ne misura il consumo e si
+raccolgono due sole grandezze:
+
+\begin{itemize}[nosep,leftmargin=1.4em]
+  \item la \textbf{potenza contrattuale} in kW, che fissa un tetto fisico alla somma degli
+        assorbimenti simultanei;
+  \item il \textbf{carico base} in W, cioè quanto assorbe la casa quando tutto sembra spento
+        (router, allarme, standby, illuminazione di servizio), con il relativo livello di
+        confidenza.
+\end{itemize}
+
+
+\subsection*{Fase 2 --- Aggiunta dei dispositivi}
+
+Il cliente aggiunge un dispositivo alla volta, scegliendo la tipologia da un \textbf{catalogo}
+di 18 tipologie, organizzate per categoria: freddo, lavaggio, cottura, climatizzazione,
+intrattenimento, mobilità. Per ogni istanza si raccolgono:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Campo} & \textbf{Significato} \\
+\midrule
+Etichetta & Nome libero che distingue due apparecchi della stessa tipologia. \\
+\addlinespace
+Marca e modello (opz.)
+& Selezionandoli dal catalogo, le potenze vengono \textbf{precompilate} automaticamente; restano
+  comunque modificabili a mano. \\
+\addlinespace
+Potenza tipica, minima, di picco
+& I tre valori in W dell'assorbimento in funzione. La potenza tipica è il $P_i$ del modello, i due
+  estremi definiscono l'intervallo entro cui il solver può muovere il livello di assorbimento. \\
+\addlinespace
+Modalità d'uso
+& \code{cycle}, \code{daily\_hours} o \code{always\_on}: decide quali domande di utilizzo vengono
+  mostrate (tabella seguente). \\
+\addlinespace
+Fascia oraria
+& Ora di inizio e di fine della finestra in cui l'apparecchio viene tipicamente avviato o usato. \\
+\addlinespace
+Mesi di attività
+& I mesi dell'anno in cui l'apparecchio viene usato: è la dichiarazione di
+  \textbf{stagionalità} (un climatizzatore attivo solo da giugno a settembre, una stufa solo
+  d'inverno). \\
+\addlinespace
+Confidenza
+& \code{alta}, \code{media} o \code{bassa}: quanto il cliente è sicuro di ciò che ha dichiarato
+  per quell'apparecchio. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Le domande sull'utilizzo non sono le stesse per tutti: chiedere a un frigorifero
+\emph{«quante volte alla settimana lo usi?»} non ha senso. Ogni tipologia del catalogo porta con sé
+una \textbf{modalità d'uso} che seleziona il gruppo di domande pertinenti.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+\textbf{Modalità} & \textbf{Domande poste} & \textbf{Esempi} \\
+\midrule
+\code{cycle}
+& Frequenza settimanale (min--max), durata del ciclo in minuti (min--max), fascia oraria di avvio
+& lavatrice, forno, auto elettrica \\
+\addlinespace
+\code{daily\_hours}
+& Ore medie di accensione al giorno (min--max), fascia oraria di utilizzo
+& climatizzatore, TV, computer \\
+\addlinespace
+\code{always\_on}
+& Nessuna domanda di utilizzo: solo potenza media e duty cycle
+& frigorifero, congelatore \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Tutte le grandezze di utilizzo sono chieste come \textbf{intervallo minimo--massimo}, non come
+valore puntuale. È coerente con il principio guida del capitolo precedente: il cliente risponde a
+memoria, e un intervallo dichiara onestamente la propria incertezza dove un numero secco fingerebbe
+una precisione che non esiste.
+
+\begin{notebox}{Fasce a cavallo della mezzanotte}
+Se l'ora di fine precede quella di inizio --- un climatizzatore usato dalle 23:00 alle 07:00 ---
+l'applicazione riconosce il caso e marca la finestra come estesa al giorno successivo, invece di
+trattarla come un intervallo vuoto.
+\end{notebox}
+
+\subsection*{Fase 3 --- Validazione ed export}
+
+Prima del salvataggio la risposta viene controllata (\code{questionnaire/schema.py}): IMEI
+presente e numerico, potenza contrattuale positiva, almeno un dispositivo, coerenza degli
+intervalli (la potenza minima non può superare la tipica, il minimo di ogni intervallo non può
+superare il massimo, le ore giornaliere non possono superare 24), etichette non duplicate
+all'interno della stessa tipologia. I problemi vengono mostrati in chiaro al compilatore, che
+corregge prima di inviare.
+
+L'export produce due formati dello stesso contenuto: un \textbf{JSON} in schema v3, che è il
+formato di riferimento, e un \textbf{Excel} a due fogli (\code{household} con i dati casa,
+\code{devices} con una riga per istanza) per l'ispezione manuale.
+
+\section{Il formato dei dati prodotti}
+
+Un estratto della struttura JSON, con due climatizzatori dichiarati separatamente:
+
+{\small
+\begin{verbatim}
+{
+  "schema_version": 3,
+  "imei": "860123456789012",
+  "household": {
+    "contract_power_kw": 4.5,
+    "base_load_w": 85.0,
+    "base_load_confidence": "media"
+  },
+  "devices": [
+    {"id": "climatizzatore-a1b2c3", "type": "Climatizzatore", "label": "Camera",
+     "usage_mode": "daily_hours",
+     "daily_usage_hours_min": 6, "daily_usage_hours_max": 8,
+     "start_window_start_min": 1380, "start_window_end_min": 420,
+     "start_window_wraps_next_day": true,
+     "active_months": [6, 7, 8, 9],
+     "p_min_w": 400.0, "p_typical_w": 1100.0, "p_max_w": 1600.0,
+     "confidence": "media"},
+    {"id": "climatizzatore-d4e5f6", "type": "Climatizzatore", "label": "Salotto",
+     "usage_mode": "daily_hours",
+     "daily_usage_hours_min": 2, "daily_usage_hours_max": 4, "...": "..."}
+  ]
+}
+\end{verbatim}
+}
+
+\noindent
+Gli orari sono espressi in minuti dalla mezzanotte (1380 $=$ 23:00, 420 $=$ 07:00), i mesi come
+numeri da 1 a 12.
+
+\section{Dove finisce ciascuna risposta}
+
+Ogni campo raccolto ha una destinazione precisa nel modello. La tabella seguente è la mappa fra
+intervista e formulazione matematica.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Risposta} & \textbf{Simbolo} & \textbf{Uso nel modello} \\
+\midrule
+Presenza del dispositivo & --- & Determina l'insieme degli apparecchi modellati: un
+  apparecchio non dichiarato non ha variabili. \\
+\addlinespace
+Potenza tipica & $P_i$ & Ampiezza del gradino associato all'apparecchio
+  (capitolo~\ref{ch:modelli}). \\
+\addlinespace
+Potenza min./picco & $\delta$ & Delimitano i livelli di assorbimento alternativi che il solver può
+  scegliere. \\
+\addlinespace
+Ore giornaliere / durata ciclo & $E_i$ & Monte ore giornaliero atteso; lo scostamento è penalizzato
+  con $\lambda_d$ (capitolo~\ref{ch:obiettivo}). \\
+\addlinespace
+Frequenza settimanale & --- & Quota settimanale di accensioni, propagata da un giorno all'altro
+  come costante (capitolo~\ref{ch:pipeline}). \\
+\addlinespace
+Fascia oraria & $f_i(t)$ & Fattore temporale: penalità crescente con la distanza dalla finestra
+  dichiarata (capitolo~\ref{ch:fattore}). \\
+\addlinespace
+Mesi di attività & $\lambda_s$ & Penalità di stagionalità per ogni slot acceso fuori dai mesi
+  dichiarati. \\
+\addlinespace
+Modalità \code{always\_on} & $p^{\text{ao}}_j$ & L'apparecchio entra come livello di assorbimento
+  continuo ottimizzato dal solver, senza attivazioni discrete. \\
+\addlinespace
+Carico base della casa & --- & Quota costante non attribuibile ad alcun apparecchio, che evita di
+  gonfiare le stime dei sempre accesi. \\
+\addlinespace
+Potenza contrattuale & --- & Tetto fisico alla somma degli assorbimenti simultanei. \\
+\addlinespace
+Confidenza & --- & Destinata a modulare per apparecchio il peso delle penalità: una dichiarazione
+  a confidenza bassa deve costare meno da violare. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{warnbox}{Stato di integrazione}
+La webapp è operativa e produce dati in schema v3. Restano due passi per l'uso in produzione:
+\begin{itemize}[nosep,leftmargin=1.4em]
+  \item il \textbf{catalogo modelli} è al momento uno stub dimostrativo, con marca generica e
+        potenze indicative; va sostituito con un database prodotti reale (etichette energetiche
+        europee, API dei produttori). L'applicazione dipende solo dalla firma della funzione di
+        ricerca, quindi la sostituzione è circoscritta;
+  \item serve l'\textbf{adattatore} che converta le istanze v3 nei profili letti dal modello di
+        ottimizzazione, che oggi consuma ancora il formato v2.
+\end{itemize}
+Il peso della confidenza sulle penalità è previsto dallo schema ma non ancora letto dal modello.
+\end{warnbox}

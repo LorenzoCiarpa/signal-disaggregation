@@ -1,0 +1,85 @@
+\babel@toc {italian}{}\relax 
+\babel@toc {italian}{}\relax 
+\contentsline {chapter}{\numberline {1}Introduzione e scopo del documento}{3}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Il problema}{3}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Il ruolo del questionario}{3}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Cosa contiene questo documento}{4}{section.1.3}%
+\contentsline {chapter}{\numberline {2}Il questionario: la webapp di raccolta dati}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Perché una webapp e non un modulo statico}{5}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Come si svolge l'intervista}{6}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Il formato dei dati prodotti}{7}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Dove finisce ciascuna risposta}{8}{section.2.4}%
+\contentsline {chapter}{\numberline {3}Perché un MILP con errore $L_1$}{10}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Il vincolo imposto dal solver}{10}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Dall'errore quadratico all'errore assoluto}{10}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}La linearizzazione}{10}{subsection.3.2.1}%
+\contentsline {section}{\numberline {3.3}Conseguenza sulla scala delle penalità}{11}{section.3.3}%
+\contentsline {chapter}{\numberline {4}Notazione}{12}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Indici e insiemi}{12}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Dati del problema}{12}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Variabili di decisione}{13}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Coefficienti di penalità}{13}{section.4.4}%
+\contentsline {chapter}{\numberline {5}La pipeline di elaborazione}{14}{chapter.5}%
+\contentsline {section}{\numberline {5.1}I tre passi}{14}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Selezione del periodo di analisi}{14}{section.5.2}%
+\contentsline {chapter}{\numberline {6}Il modello}{16}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Due gruppi di apparecchi e livelli di potenza}{16}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Apparecchi sempre accesi}{16}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Ricostruzione del segnale}{17}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Transizioni e conteggio delle accensioni}{17}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Durata dei cicli}{18}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Quota settimanale di utilizzi}{18}{section.6.6}%
+\contentsline {section}{\numberline {6.7}Stagionalità e specificità della fascia oraria}{19}{section.6.7}%
+\contentsline {section}{\numberline {6.8}La funzione obiettivo completa}{20}{section.6.8}%
+\contentsline {chapter}{\numberline {7}Anatomia della funzione obiettivo}{21}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Il principio unificante: omogeneità dimensionale}{21}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Termine 1 --- Errore di ricostruzione}{21}{section.7.2}%
+\contentsline {paragraph}{Che cosa misura.}{22}{paragraph*.2}%
+\contentsline {paragraph}{Ruolo nel modello.}{22}{paragraph*.3}%
+\contentsline {paragraph}{Coefficiente.}{22}{paragraph*.4}%
+\contentsline {paragraph}{Asimmetria fra sovrastima e sottostima.}{22}{paragraph*.5}%
+\contentsline {section}{\numberline {7.3}Termine 2 --- Fascia oraria}{22}{section.7.3}%
+\contentsline {paragraph}{Che cosa misura.}{22}{paragraph*.6}%
+\contentsline {paragraph}{Perché è applicato a $x_{i,t}$ e non a $u_{i,t}$.}{22}{paragraph*.7}%
+\contentsline {paragraph}{Effetto del coefficiente.}{22}{paragraph*.8}%
+\contentsline {section}{\numberline {7.4}Termine 3 --- Numero di accensioni}{23}{section.7.4}%
+\contentsline {paragraph}{Che cosa misura.}{23}{paragraph*.9}%
+\contentsline {paragraph}{A che serve.}{23}{paragraph*.10}%
+\contentsline {paragraph}{Interpretazione del coefficiente.}{23}{paragraph*.11}%
+\contentsline {paragraph}{Comportamento al variare.}{23}{paragraph*.12}%
+\contentsline {section}{\numberline {7.5}Termine 4 --- Durata dei cicli}{23}{section.7.5}%
+\contentsline {paragraph}{Che cosa misura.}{23}{paragraph*.13}%
+\contentsline {paragraph}{Il punto non ovvio.}{23}{paragraph*.14}%
+\contentsline {paragraph}{Interpretazione del coefficiente.}{23}{paragraph*.15}%
+\contentsline {section}{\numberline {7.6}Termine 5 --- Monte ore giornaliero}{23}{section.7.6}%
+\contentsline {paragraph}{Che cosa misura.}{24}{paragraph*.16}%
+\contentsline {paragraph}{Differenza rispetto al termine precedente.}{24}{paragraph*.17}%
+\contentsline {paragraph}{Perché è disattivato per impostazione predefinita.}{24}{paragraph*.18}%
+\contentsline {section}{\numberline {7.7}Termine 6 --- Quota settimanale}{24}{section.7.7}%
+\contentsline {paragraph}{Che cosa misura.}{24}{paragraph*.19}%
+\contentsline {paragraph}{L'eccezione alla regola del punto di pareggio.}{24}{paragraph*.20}%
+\contentsline {paragraph}{Struttura del costo.}{24}{paragraph*.21}%
+\contentsline {section}{\numberline {7.8}Termine 7 --- Stagionalità}{24}{section.7.8}%
+\contentsline {paragraph}{Che cosa misura.}{25}{paragraph*.22}%
+\contentsline {paragraph}{Perché il coefficiente è alto.}{25}{paragraph*.23}%
+\contentsline {paragraph}{Perché resta comunque flessibile.}{25}{paragraph*.24}%
+\contentsline {paragraph}{Impatto osservato.}{25}{paragraph*.25}%
+\contentsline {section}{\numberline {7.9}Termine 8 --- Specificità della fascia oraria}{25}{section.7.9}%
+\contentsline {chapter}{\numberline {8}Il fattore temporale $f_i(t)$}{26}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Formulazione completa}{26}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Prima componente: distanza dalla fascia}{26}{section.8.2}%
+\contentsline {paragraph}{Perché graduale.}{26}{paragraph*.26}%
+\contentsline {paragraph}{Comportamento.}{26}{paragraph*.27}%
+\contentsline {paragraph}{Distanza circolare.}{26}{paragraph*.28}%
+\contentsline {section}{\numberline {8.3}Seconda componente: genericità della dichiarazione}{27}{section.8.3}%
+\contentsline {subsection}{\numberline {8.3.1}Il problema che risolve}{27}{subsection.8.3.1}%
+\contentsline {subsection}{\numberline {8.3.2}L'impostazione corretta}{27}{subsection.8.3.2}%
+\contentsline {subsection}{\numberline {8.3.3}Da dove viene la forma logaritmica}{27}{subsection.8.3.3}%
+\contentsline {subsection}{\numberline {8.3.4}Valori sul campione reale}{28}{subsection.8.3.4}%
+\contentsline {subsection}{\numberline {8.3.5}Effetto sull'ordinamento}{28}{subsection.8.3.5}%
+\contentsline {section}{\numberline {8.4}Il caso $w = 0$}{28}{section.8.4}%
+\contentsline {chapter}{\numberline {9}Parametri e taratura}{29}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Quadro completo dei parametri}{29}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Punti di pareggio}{29}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Osservazioni sperimentali}{30}{section.9.3}%
+\contentsline {subsection}{\numberline {9.3.1}La penalità di fascia oraria è troppo forte al valore predefinito}{30}{subsection.9.3.1}%

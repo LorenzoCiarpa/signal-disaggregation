@@ -26,16 +26,22 @@ equivalente rispetto al solo segnale.
 \section{Il ruolo del questionario}
 
 L'informazione che rende il problema trattabile non viene dal segnale ma dal
-\textbf{questionario} compilato dall'utente, che per ogni elettrodomestico dichiara:
+\textbf{questionario} compilato dall'utente, raccolto attraverso una webapp dedicata descritta nel
+capitolo~\ref{ch:questionario}. Per ogni elettrodomestico presente in casa si dichiara:
 
 \begin{itemize}[nosep,leftmargin=1.4em]
-  \item se è presente in casa;
+  \item quanta potenza assorbe quando è in funzione (tipica, minima e di picco);
   \item quante volte alla settimana viene usato (minimo e massimo);
   \item quanto dura tipicamente un ciclo (minimo e massimo);
-  \item in quale fascia oraria viene tipicamente avviato;
   \item quante ore al giorno resta acceso;
-  \item in quali mesi dell'anno viene usato.
+  \item in quale fascia oraria viene tipicamente avviato o usato;
+  \item in quali mesi dell'anno viene usato, cioè se è stagionale;
+  \item se è invece un apparecchio sempre alimentato, come frigoriferi e congelatori;
+  \item quanto l'utente è sicuro di ciò che ha dichiarato.
 \end{itemize}
+
+A queste si aggiungono due dati della casa nel suo complesso: la potenza contrattuale e il carico
+base sempre presente.
 
 Tutti i modelli descritti in questo documento traducono queste dichiarazioni in
 \textbf{penalità nella funzione obiettivo}, non in vincoli rigidi. La scelta è deliberata e
@@ -52,7 +58,10 @@ principale di questo documento.
 
 \section{Cosa contiene questo documento}
 
-Il documento descrive il modello attualmente in uso, \code{highs\_survey\_prior}: le variabili di
+Il capitolo~\ref{ch:questionario} descrive la \textbf{webapp di raccolta dati}: come è strutturata
+l'intervista al cliente, quali grandezze vengono chieste e in che forma arrivano al solver.
+
+Il resto del documento descrive il modello attualmente in uso, \code{highs\_survey\_prior}: le variabili di
 decisione, la funzione obiettivo e l'insieme completo dei vincoli. Il modello traduce ogni
 dichiarazione del questionario in una penalità dell'obiettivo, secondo il principio guida enunciato
 sopra.
