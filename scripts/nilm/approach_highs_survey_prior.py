@@ -1,8 +1,9 @@
 """
 Day-wise HiGHS L1-MILP NILM with the survey's timing priors fully applied.
 
-Builds on approach_highs_weekly_quota and closes two gaps in how the questionnaire
-was being used.
+This is the model in use.  It applies the full set of questionnaire priors --- soft
+duration limits, always-on devices as variables, a weekly activation quota carried
+across days --- and closes two further gaps in how the questionnaire was being used.
 
 Seasonality
 -----------

@@ -28,7 +28,6 @@ from scripts.nilm.preprocessing import (
 from scripts.nilm.devices import get_device_profiles
 from scripts.nilm import approach_highs_survey_prior
 from scripts.nilm.output import save_results
-from scripts.nilm.benchmark import run_benchmark
 
 
 class _PartialApproach:
@@ -296,18 +295,14 @@ def main():
             del signals[imei]
             continue
         block_signals_by_imei[imei] = chunks
-        # Benchmark and plots must see exactly the days that were disaggregated.
+        # Plots must see exactly the days that were disaggregated.
         signals[imei] = pd.concat(chunks).sort_index()
-
-    # results[imei][approach_name] = disaggregation_dict
-    results = {}
 
     for imei in imeis:
         if imei not in signals:
             continue
         signal = signals[imei]
         block_signals = block_signals_by_imei[imei]
-        results[imei] = {}
 
         for approach_key, approach_module in approaches:
             approach_name = approach_key
@@ -340,7 +335,6 @@ def main():
                     ).sort_index()
                     for name in device_names
                 }
-                results[imei][approach_name] = disaggregation
                 elapsed_time = time.time() - initial_time
                 print(f"Approach {approach_name} completed in {elapsed_time:.2f} seconds.")
 
@@ -359,21 +353,6 @@ def main():
                 msg = f"ERROR IMEI {imei}, approach {approach_name}: {e}\n{traceback.format_exc()}"
                 print(msg)
                 errors.append(f"ERROR IMEI {imei}, approach {approach_name}: {e}")
-
-    # Run benchmark if we have any results
-    if results:
-        print("\nRunning benchmark...")
-        try:
-            run_benchmark(
-                results=results,
-                signals=signals,
-                devices_by_imei=devices_by_imei,
-                output_dir=args.output_dir,
-            )
-        except Exception as e:
-            msg = f"ERROR in benchmark: {e}\n{traceback.format_exc()}"
-            print(msg)
-            errors.append(f"ERROR in benchmark: {e}")
 
     end_time = datetime.datetime.now()
     duration = end_time - start_time
